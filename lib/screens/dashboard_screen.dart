@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../core/constants/app_dimensions.dart';
 import '../core/formatters.dart';
+import '../domain/services/report_period_resolver.dart';
 import '../models/mikiezy_models.dart';
-import '../services/voice/voice_entry_launch_source.dart';
+import '../services/navigation/app_navigation_service.dart';
+import '../services/voice/global_voice_scope.dart';
 import '../services/voice/voice_assistant_manager.dart';
+import '../services/voice/voice_command.dart';
 import '../shared/widgets/mikiezy_components.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -15,7 +18,6 @@ import 'preview_transaction_screen.dart';
 import 'reports_screen.dart';
 import 'settings_screen.dart';
 import 'transactions_screen.dart';
-import 'voice_entry_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -115,14 +117,26 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          _HeaderIcon(icon: Icons.notifications_none_rounded, onTap: () {}),
+          _HeaderIcon(
+            icon: Icons.notifications_none_rounded,
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Notifikasi penjualan segera hadir.'),
+              ),
+            ),
+          ),
           const SizedBox(width: 9),
           _HeaderIcon(
             icon: Icons.person_outline_rounded,
             active: true,
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                settings: RouteSettings(
+                  name: AppRouteNames.forTarget(VoiceNavigationTarget.settings),
+                ),
+                builder: (_) => const SettingsScreen(),
+              ),
+            ),
           ),
         ],
       ),
@@ -209,22 +223,18 @@ class _StatsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final transactionsToday = state.transactions
-        .where((tx) => DateUtils.isSameDay(tx.createdAt, DateTime.now()))
-        .length;
-    final bestSeller = state.transactions
-        .where((tx) => tx.kind == TransactionKind.sale && tx.lines.isNotEmpty)
-        .map((tx) => tx.lines.first.productName)
-        .fold<Map<String, int>>({}, (map, name) {
-          map[name] = (map[name] ?? 0) + 1;
-          return map;
-        });
-    final best = bestSeller.entries.isEmpty
-        ? 'Belum ada'
-        : (bestSeller.entries.toList()
-                ..sort((a, b) => b.value.compareTo(a.value)))
-              .first
-              .key;
+    final now = DateTime.now();
+    final transactionsToday =
+        state
+            .transactionCountMetric(ReportPeriodType.today, now: now)
+            .countValue ??
+        0;
+    final topProduct = state.topProductsMetric(
+      ReportPeriodType.today,
+      now: now,
+      limit: 1,
+    );
+    final best = topProduct.productName ?? 'Belum ada';
 
     return Row(
       children: [
@@ -439,19 +449,7 @@ class _VoiceCard extends StatelessWidget {
   }
 
   Future<void> _openVoiceEntry(BuildContext context) async {
-    final manager = VoiceAssistantScope.maybeOf(context);
-    await manager?.pauseForManualSession();
-    if (!context.mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const VoiceEntryScreen(
-          autoStart: true,
-          launchSource: VoiceEntryLaunchSource.manualTap,
-        ),
-      ),
-    );
-    if (!context.mounted) return;
-    await manager?.resumeAfterManualSession();
+    await GlobalVoiceScope.of(context).startPushToTalk();
   }
 }
 
@@ -469,6 +467,9 @@ class _QuickActions extends StatelessWidget {
         label: en ? 'Add' : 'Tambah',
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
+            settings: const RouteSettings(
+              name: AppRouteNames.previewTransaction,
+            ),
             builder: (_) =>
                 PreviewTransactionScreen(initialDraft: _manualDraft(state)),
           ),
@@ -477,16 +478,26 @@ class _QuickActions extends StatelessWidget {
       _QuickAction(
         icon: Icons.receipt_long_outlined,
         label: en ? 'Transactions' : 'Transaksi',
-        onTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const TransactionsScreen())),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            settings: RouteSettings(
+              name: AppRouteNames.forTarget(VoiceNavigationTarget.transactions),
+            ),
+            builder: (_) => const TransactionsScreen(),
+          ),
+        ),
       ),
       _QuickAction(
         icon: Icons.bar_chart_rounded,
         label: en ? 'Analytics' : 'Analitik',
-        onTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const ReportsScreen())),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            settings: RouteSettings(
+              name: AppRouteNames.forTarget(VoiceNavigationTarget.analytics),
+            ),
+            builder: (_) => const ReportsScreen(),
+          ),
+        ),
       ),
     ];
 
@@ -607,7 +618,14 @@ class _RecentTransactions extends StatelessWidget {
             ),
             TextButton(
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TransactionsScreen()),
+                MaterialPageRoute(
+                  settings: RouteSettings(
+                    name: AppRouteNames.forTarget(
+                      VoiceNavigationTarget.transactions,
+                    ),
+                  ),
+                  builder: (_) => const TransactionsScreen(),
+                ),
               ),
               child: Text(en ? 'See all' : 'Lihat semua'),
             ),
@@ -652,7 +670,7 @@ class _TransactionRow extends StatelessWidget {
         ? transaction.lines.first.productName
         : transaction.categoryName;
     final qty = transaction.lines.isNotEmpty
-        ? 'Qty ${transaction.lines.first.quantity} - ${timeLabel(transaction.createdAt)}'
+        ? 'Qty ${quantityLabel(transaction.lines.first.quantity)} - ${timeLabel(transaction.createdAt)}'
         : '${transaction.kind.label} - ${timeLabel(transaction.createdAt)}';
 
     return InkWell(

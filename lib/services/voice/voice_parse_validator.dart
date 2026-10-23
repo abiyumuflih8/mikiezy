@@ -30,7 +30,8 @@ class VoiceParseValidator {
     }
 
     if (result.totalAmount != null && subtotalComplete && subtotal > 0) {
-      final adjustedSubtotal = (subtotal - result.discount).clamp(0, 1 << 31);
+      final adjustedSubtotal =
+          (subtotal - result.discount).clamp(0, 1 << 31).toInt();
       if ((adjustedSubtotal - result.totalAmount!).abs() > 1) {
         warnings.add(
           'Total transcript tidak sama dengan subtotal item (${result.totalAmount} vs $adjustedSubtotal).',

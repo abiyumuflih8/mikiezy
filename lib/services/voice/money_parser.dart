@@ -1,4 +1,5 @@
 import 'indonesian_number_parser.dart';
+import 'voice_unit_dictionary.dart';
 
 class MoneyCandidate {
   const MoneyCandidate({
@@ -101,21 +102,6 @@ class MoneyParser {
   }
 
   bool _isQuantityUnit(String token) {
-    return const {
-      'pcs',
-      'pc',
-      'buah',
-      'porsi',
-      'gelas',
-      'kilo',
-      'kg',
-      'bungkus',
-      'pack',
-      'pak',
-      'karton',
-      'dus',
-      'box',
-      'botol',
-    }.contains(token);
+    return VoiceUnitDictionary.canonicalUnit(token) != null;
   }
 }

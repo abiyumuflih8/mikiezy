@@ -43,3 +43,36 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local signing and credentials
+**/key.properties
+*.jks
+*.keystore
+*.pem
+*.p12
+*.p8
+*.pfx
+.env
+.env.*
+!.env.example
+
+# Local databases and device-validation evidence
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+/evidence/
+
+# Packaged builds and machine-local configuration
+*.apk
+*.aab
+**/local.properties
+
+# Local UAS scripts contain personal student information
+/docs/Script_UAS_Pemrograman_Mobile_Mikiezy.docx
+/docs/script_uas_pemrograman_mobile_mikiezy.md

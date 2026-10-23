@@ -7,6 +7,9 @@ class MikiezySnapshot {
     required this.wallets,
     required this.categories,
     required this.transactions,
+    required this.voiceProductAliases,
+    required this.voiceUnitAliases,
+    required this.voiceCorrections,
     required this.pinEnabled,
     required this.biometricEnabled,
     required this.cloudSyncEnabled,
@@ -16,6 +19,9 @@ class MikiezySnapshot {
     required this.voiceSensitivity,
     required this.handsfreeWakeWordEnabled,
     required this.silentTimeoutSeconds,
+    required this.enableVoiceLearning,
+    required this.voiceFinancialPrivacyEnabled,
+    required this.maskVoiceFinancialValues,
     required this.ownerName,
     required this.email,
     required this.phone,
@@ -30,6 +36,9 @@ class MikiezySnapshot {
   final List<Wallet> wallets;
   final List<LedgerCategory> categories;
   final List<TransactionRecord> transactions;
+  final List<VoiceProductAlias> voiceProductAliases;
+  final List<VoiceUnitAlias> voiceUnitAliases;
+  final List<VoiceCorrection> voiceCorrections;
   final bool pinEnabled;
   final bool biometricEnabled;
   final bool cloudSyncEnabled;
@@ -39,6 +48,9 @@ class MikiezySnapshot {
   final int voiceSensitivity;
   final bool handsfreeWakeWordEnabled;
   final int silentTimeoutSeconds;
+  final bool enableVoiceLearning;
+  final bool voiceFinancialPrivacyEnabled;
+  final bool maskVoiceFinancialValues;
   final String ownerName;
   final String email;
   final String phone;
@@ -54,6 +66,9 @@ class MikiezySnapshot {
       wallets: List.of(wallets),
       categories: List.of(categories),
       transactions: List.of(transactions),
+      voiceProductAliases: List.of(voiceProductAliases),
+      voiceUnitAliases: List.of(voiceUnitAliases),
+      voiceCorrections: List.of(voiceCorrections),
       pinEnabled: pinEnabled,
       biometricEnabled: biometricEnabled,
       cloudSyncEnabled: cloudSyncEnabled,
@@ -63,6 +78,9 @@ class MikiezySnapshot {
       voiceSensitivity: voiceSensitivity,
       handsfreeWakeWordEnabled: handsfreeWakeWordEnabled,
       silentTimeoutSeconds: silentTimeoutSeconds,
+      enableVoiceLearning: enableVoiceLearning,
+      voiceFinancialPrivacyEnabled: voiceFinancialPrivacyEnabled,
+      maskVoiceFinancialValues: maskVoiceFinancialValues,
       ownerName: ownerName,
       email: email,
       phone: phone,

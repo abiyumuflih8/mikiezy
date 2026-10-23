@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/constants/app_dimensions.dart';
 import '../core/formatters.dart';
+import '../domain/services/product_validator.dart';
 import '../models/mikiezy_models.dart';
 import '../shared/widgets/mikiezy_components.dart';
 import '../state/app_state.dart';
@@ -184,7 +185,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       content: Text('Kategori barang berhasil ditambahkan.'),
                     ),
                   );
-                } catch (_) {
+                } catch (error, stackTrace) {
+                  debugPrint(
+                    'Gagal menyimpan kategori barang: $error\n$stackTrace',
+                  );
                   if (!mounted) return;
                   messenger.showSnackBar(
                     const SnackBar(
@@ -235,7 +239,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Barang berhasil dihapus.')));
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Gagal menghapus barang: $error\n$stackTrace');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Barang belum bisa dihapus.')),
@@ -579,7 +584,9 @@ class _ProductTile extends StatelessWidget {
                         ),
                         _MiniStat(
                           label: 'Stok',
-                          value: '${product.stockPcs} pcs',
+                          value: product.trackStock
+                              ? '${quantityLabel(product.stockPcs)} ${product.baseUnit.label}'
+                              : 'Tidak dilacak',
                         ),
                         _MiniStat(
                           label: 'Pack',
@@ -643,15 +650,19 @@ class _ProductForm extends StatefulWidget {
 }
 
 class _ProductFormState extends State<_ProductForm> {
+  static const _productValidator = ProductValidator();
   final formKey = GlobalKey<FormState>();
   final name = TextEditingController();
   final cost = TextEditingController(text: '8000');
   final retail = TextEditingController(text: '12000');
   final wholesale = TextEditingController(text: '10000');
   final stock = TextEditingController(text: '24');
+  final minStock = TextEditingController(text: '5');
   final pack = TextEditingController(text: '12');
   final carton = TextEditingController(text: '48');
   String selectedCategory = 'Makanan';
+  SaleUnit selectedBaseUnit = SaleUnit.pcs;
+  bool trackStock = true;
   bool distributor = false;
   bool saving = false;
 
@@ -667,10 +678,13 @@ class _ProductFormState extends State<_ProductForm> {
     cost.text = product.costPrice.toString();
     retail.text = product.retailPrice.toString();
     wholesale.text = product.wholesalePrice.toString();
-    stock.text = product.stockPcs.toString();
+    stock.text = quantityLabel(product.stockPcs);
+    minStock.text = quantityLabel(product.minStock);
     pack.text = product.packSize.toString();
     carton.text = product.cartonSize.toString();
     selectedCategory = product.category;
+    selectedBaseUnit = product.baseUnit;
+    trackStock = product.trackStock;
     distributor =
         product.costPrice > 0 ||
         product.wholesalePrice != product.retailPrice ||
@@ -686,6 +700,7 @@ class _ProductFormState extends State<_ProductForm> {
     retail.dispose();
     wholesale.dispose();
     stock.dispose();
+    minStock.dispose();
     pack.dispose();
     carton.dispose();
     super.dispose();
@@ -699,6 +714,9 @@ class _ProductFormState extends State<_ProductForm> {
         : state.productCategories;
     if (!categories.contains(selectedCategory)) {
       selectedCategory = categories.first;
+    }
+    if (!_stockBaseUnits.contains(selectedBaseUnit)) {
+      selectedBaseUnit = SaleUnit.pcs;
     }
     return Padding(
       padding: EdgeInsets.only(
@@ -792,6 +810,11 @@ class _ProductFormState extends State<_ProductForm> {
                         decoration: const InputDecoration(
                           labelText: 'Harga modal',
                         ),
+                        validator: (value) => _validateWholeNumber(
+                          value,
+                          label: 'Harga modal',
+                          allowZero: true,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -802,6 +825,8 @@ class _ProductFormState extends State<_ProductForm> {
                         decoration: const InputDecoration(
                           labelText: 'Harga grosir',
                         ),
+                        validator: (value) =>
+                            _validateWholeNumber(value, label: 'Harga grosir'),
                       ),
                     ),
                   ],
@@ -811,21 +836,13 @@ class _ProductFormState extends State<_ProductForm> {
                   children: [
                     Expanded(
                       child: TextFormField(
-                        controller: stock,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Stok pcs',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextFormField(
                         controller: pack,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           labelText: 'Isi pack',
                         ),
+                        validator: (value) =>
+                            _validateWholeNumber(value, label: 'Isi pack'),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -836,6 +853,74 @@ class _ProductFormState extends State<_ProductForm> {
                         decoration: const InputDecoration(
                           labelText: 'Isi karton',
                         ),
+                        validator: (value) =>
+                            _validateWholeNumber(value, label: 'Isi karton'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 10),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: trackStock,
+                onChanged: (value) => setState(() => trackStock = value),
+                title: const Text(
+                  'Lacak stok produk',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                subtitle: const Text(
+                  'Aktifkan agar stok berkurang otomatis saat produk terjual.',
+                ),
+              ),
+              if (trackStock) ...[
+                const SizedBox(height: 10),
+                DropdownButtonFormField<SaleUnit>(
+                  initialValue: selectedBaseUnit,
+                  decoration: const InputDecoration(
+                    labelText: 'Satuan dasar stok',
+                  ),
+                  items: _stockBaseUnits
+                      .map(
+                        (unit) => DropdownMenuItem(
+                          value: unit,
+                          child: Text(unit.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(
+                    () => selectedBaseUnit = value ?? selectedBaseUnit,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: stock,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Stok ${selectedBaseUnit.label}',
+                        ),
+                        validator: _validateStock,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        controller: minStock,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Batas stok minimum',
+                          helperText:
+                              'Ditandai menipis saat stok mencapai batas ini.',
+                        ),
+                        validator: _validateMinStock,
                       ),
                     ),
                   ],
@@ -863,7 +948,6 @@ class _ProductFormState extends State<_ProductForm> {
   Future<void> _save() async {
     if (!(formKey.currentState?.validate() ?? false)) return;
     if (name.text.trim().isEmpty) return;
-    setState(() => saving = true);
     final state = MikiezyScope.of(context);
     final product = Product(
       id: widget.product?.id ?? 'new',
@@ -874,10 +958,33 @@ class _ProductFormState extends State<_ProductForm> {
       wholesalePrice: distributor
           ? intFromController(wholesale)
           : intFromController(retail),
-      packSize: distributor ? intFromController(pack).clamp(1, 9999) : 1,
-      cartonSize: distributor ? intFromController(carton).clamp(1, 9999) : 1,
-      stockPcs: distributor ? intFromController(stock) : 0,
+      packSize: distributor
+          ? intFromController(pack).clamp(1, 9999).toInt()
+          : 1,
+      cartonSize: distributor
+          ? intFromController(carton).clamp(1, 9999).toInt()
+          : 1,
+      stockPcs: trackStock
+          ? quantityFromController(stock).clamp(0, 999999).toDouble()
+          : 0,
+      trackStock: trackStock,
+      baseUnit: trackStock ? selectedBaseUnit : SaleUnit.pcs,
+      minStock: trackStock
+          ? quantityFromController(minStock).clamp(0, 999999).toDouble()
+          : 0,
     );
+    final validation = _productValidator.validate(
+      product,
+      existingProducts: state.products,
+      excludingProductId: widget.product?.id,
+    );
+    if (!validation.isValid) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(validation.userMessage)));
+      return;
+    }
+    setState(() => saving = true);
 
     try {
       if (isEditing) {
@@ -896,7 +1003,8 @@ class _ProductFormState extends State<_ProductForm> {
         ),
       );
       Navigator.of(context).pop();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Gagal menyimpan barang: $error\n$stackTrace');
       if (!mounted) return;
       setState(() => saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -904,4 +1012,67 @@ class _ProductFormState extends State<_ProductForm> {
       );
     }
   }
+
+  String? _validateWholeNumber(
+    String? value, {
+    required String label,
+    bool allowZero = false,
+  }) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) return '$label wajib diisi.';
+    final parsed = int.tryParse(text);
+    if (parsed == null) return '$label harus berupa angka bulat.';
+    if (allowZero ? parsed < 0 : parsed <= 0) {
+      return allowZero
+          ? '$label tidak boleh negatif.'
+          : '$label harus lebih dari 0.';
+    }
+    return null;
+  }
+
+  String? _validateStock(String? value) {
+    final text = (value ?? '').trim().replaceAll(',', '.');
+    if (text.isEmpty) return 'Stok wajib diisi.';
+    final parsed = double.tryParse(text);
+    if (parsed == null) return 'Stok harus berupa angka.';
+    if (parsed < 0) return 'Stok tidak boleh negatif.';
+    return null;
+  }
+
+  String? _validateMinStock(String? value) {
+    final text = (value ?? '').trim().replaceAll(',', '.');
+    if (text.isEmpty) return 'Batas stok minimum wajib diisi.';
+    final parsed = double.tryParse(text);
+    if (parsed == null) return 'Batas stok minimum harus berupa angka.';
+    if (parsed < 0) return 'Batas stok minimum tidak boleh negatif.';
+    return null;
+  }
 }
+
+const _stockBaseUnits = <SaleUnit>[
+  SaleUnit.pcs,
+  SaleUnit.buah,
+  SaleUnit.biji,
+  SaleUnit.bungkus,
+  SaleUnit.potong,
+  SaleUnit.porsi,
+  SaleUnit.gelas,
+  SaleUnit.botol,
+  SaleUnit.cup,
+  SaleUnit.tusuk,
+  SaleUnit.kotak,
+  SaleUnit.sachet,
+  SaleUnit.kilo,
+  SaleUnit.gram,
+  SaleUnit.ons,
+  SaleUnit.liter,
+  SaleUnit.ml,
+  SaleUnit.meter,
+  SaleUnit.renteng,
+  SaleUnit.ikat,
+  SaleUnit.ekor,
+  SaleUnit.lembar,
+  SaleUnit.plastik,
+  SaleUnit.mangkok,
+  SaleUnit.piring,
+];

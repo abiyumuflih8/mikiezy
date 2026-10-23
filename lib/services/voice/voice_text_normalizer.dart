@@ -1,14 +1,14 @@
+import 'wake_word_detector.dart';
+
 class VoiceTextNormalizer {
   const VoiceTextNormalizer();
 
+  static const _wakeWordDetector = WakeWordDetector();
+
   String normalize(String input) {
-    return input
+    return _wakeWordDetector
+        .stripWakeWord(input)
         .toLowerCase()
-        .replaceAll(
-          RegExp(r'\b(hai|halo|hey)\s+(miki|mikiezy|miky|micki)\b'),
-          '',
-        )
-        .replaceAll(RegExp(r'\b(miki|mikiezy|miky|micki)\b'), '')
         .replaceAll(RegExp(r'\brp\.?\s*'), '')
         .replaceAll(RegExp(r'\bmasing masing\b'), 'masing-masing')
         .replaceAll(RegExp(r'\bper\s+1\b'), 'per')

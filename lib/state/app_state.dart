@@ -3,7 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/repositories/mikiezy_repository.dart';
+import '../domain/models/business_query_data.dart';
+import '../domain/models/business_query_result.dart';
+import '../domain/models/voice_privacy_policy.dart';
+import '../domain/services/business_metrics_service.dart';
+import '../domain/services/product_stock_service.dart';
+import '../domain/services/product_validator.dart';
+import '../domain/services/report_period_resolver.dart';
 import '../models/mikiezy_models.dart';
+import '../services/voice/voice_unit_dictionary.dart';
 
 class MikiezyScope extends InheritedNotifier<MikiezyState> {
   const MikiezyScope({
@@ -26,22 +34,35 @@ class MikiezyState extends ChangeNotifier {
     required List<Wallet> wallets,
     required List<LedgerCategory> categories,
     required List<TransactionRecord> transactions,
+    List<VoiceProductAlias> voiceProductAliases = const [],
+    List<VoiceUnitAlias> voiceUnitAliases = const [],
+    List<VoiceCorrection> voiceCorrections = const [],
     this.repository,
   }) : _products = List.of(products),
        _productCategories = List.of(productCategories),
        _wallets = List.of(wallets),
        _categories = List.of(categories),
-       _transactions = List.of(transactions);
+       _transactions = List.of(transactions),
+       _voiceProductAliases = List.of(voiceProductAliases),
+       _voiceUnitAliases = List.of(voiceUnitAliases),
+       _voiceCorrections = List.of(voiceCorrections);
 
   final List<Product> _products;
   final List<String> _productCategories;
   final List<Wallet> _wallets;
   final List<LedgerCategory> _categories;
   final List<TransactionRecord> _transactions;
+  final List<VoiceProductAlias> _voiceProductAliases;
+  final List<VoiceUnitAlias> _voiceUnitAliases;
+  final List<VoiceCorrection> _voiceCorrections;
   final MikiezyRepository? repository;
+  final ProductStockService _stockService = const ProductStockService();
+  final ProductValidator _productValidator = const ProductValidator();
+  final BusinessMetricsService _businessMetrics =
+      const BusinessMetricsService();
 
-  bool pinEnabled = true;
-  bool biometricEnabled = true;
+  bool pinEnabled = false;
+  bool biometricEnabled = false;
   bool cloudSyncEnabled = false;
   String supabaseUrl = 'Belum dikonfigurasi';
   int queuedSyncCount = 8;
@@ -49,6 +70,9 @@ class MikiezyState extends ChangeNotifier {
   int voiceSensitivity = 75;
   bool handsfreeWakeWordEnabled = true;
   int silentTimeoutSeconds = 5;
+  bool enableVoiceLearning = true;
+  bool voiceFinancialPrivacyEnabled = false;
+  bool maskVoiceFinancialValues = false;
   String ownerName = 'Muhammad Abiyu Muflih';
   String email = 'abiyu@tokomajujaya.com';
   String phone = '+62 812 4523 2101';
@@ -75,45 +99,125 @@ class MikiezyState extends ChangeNotifier {
   List<Wallet> get wallets => List.unmodifiable(_wallets);
   List<LedgerCategory> get categories => List.unmodifiable(_categories);
   List<TransactionRecord> get transactions => List.unmodifiable(_transactions);
+  List<VoiceProductAlias> get voiceProductAliases =>
+      List.unmodifiable(_voiceProductAliases);
+  List<VoiceUnitAlias> get voiceUnitAliases =>
+      List.unmodifiable(_voiceUnitAliases);
+  List<VoiceCorrection> get voiceCorrections =>
+      List.unmodifiable(_voiceCorrections);
+  BusinessQueryData get businessQueryData => businessQueryDataFor();
+
+  BusinessQueryData businessQueryDataFor({bool isAppLocked = false}) =>
+      BusinessQueryData(
+        transactions: _transactions,
+        products: _products,
+        wallets: _wallets,
+        productAliases: _voiceProductAliases,
+        isReady: localStorageReady,
+        sourceError: localStorageError,
+        privacyPolicy: VoicePrivacyPolicy(
+          hideFinancialValuesFromTts: voiceFinancialPrivacyEnabled,
+          maskFinancialValuesOnScreen: maskVoiceFinancialValues,
+          isAppLocked: isAppLocked,
+        ),
+      );
+
+  BusinessQueryResult salesMetric(ReportPeriodType period, {DateTime? now}) {
+    return _businessMetrics.sales(
+      transactions: _transactions,
+      period: period,
+      now: now ?? DateTime.now(),
+    );
+  }
+
+  BusinessQueryResult incomeMetric(ReportPeriodType period, {DateTime? now}) {
+    return _businessMetrics.income(
+      transactions: _transactions,
+      period: period,
+      now: now ?? DateTime.now(),
+    );
+  }
+
+  BusinessQueryResult expenseMetric(ReportPeriodType period, {DateTime? now}) {
+    return _businessMetrics.expense(
+      transactions: _transactions,
+      period: period,
+      now: now ?? DateTime.now(),
+    );
+  }
+
+  BusinessQueryResult profitMetric(ReportPeriodType period, {DateTime? now}) {
+    return _businessMetrics.profit(
+      transactions: _transactions,
+      period: period,
+      now: now ?? DateTime.now(),
+    );
+  }
+
+  BusinessQueryResult transactionCountMetric(
+    ReportPeriodType period, {
+    DateTime? now,
+    BusinessTransactionFilter filter = BusinessTransactionFilter.all,
+  }) {
+    return _businessMetrics.transactionCount(
+      transactions: _transactions,
+      period: period,
+      now: now ?? DateTime.now(),
+      filter: filter,
+    );
+  }
+
+  BusinessQueryResult topProductsMetric(
+    ReportPeriodType period, {
+    DateTime? now,
+    int limit = 4,
+  }) {
+    return _businessMetrics.topProducts(
+      transactions: _transactions,
+      period: period,
+      now: now ?? DateTime.now(),
+      limit: limit,
+    );
+  }
+
+  List<BusinessQueryItem> expenseByCategoryMetric(
+    ReportPeriodType period, {
+    DateTime? now,
+  }) {
+    return _businessMetrics.expenseByCategory(
+      transactions: _transactions,
+      period: period,
+      now: now ?? DateTime.now(),
+    );
+  }
 
   int get salesToday {
-    return _transactions
-        .where(
-          (tx) => _isToday(tx.createdAt) && tx.kind == TransactionKind.sale,
-        )
-        .fold(0, (sum, tx) => sum + tx.amount);
+    return salesMetric(ReportPeriodType.today).moneyValue ?? 0;
   }
 
   int get expensesToday {
-    return _transactions
-        .where(
-          (tx) => _isToday(tx.createdAt) && tx.kind == TransactionKind.expense,
-        )
-        .fold(0, (sum, tx) => sum + tx.amount);
+    return expenseMetric(ReportPeriodType.today).moneyValue ?? 0;
   }
 
-  int get incomeTotal {
-    return _transactions
-        .where(
-          (tx) =>
-              tx.kind == TransactionKind.sale ||
-              tx.kind == TransactionKind.income,
-        )
-        .fold(0, (sum, tx) => sum + tx.amount);
-  }
+  int get nonSalesIncomeTotal =>
+      incomeMetric(ReportPeriodType.allTime).moneyValue ?? 0;
 
-  int get expenseTotal {
-    return _transactions
-        .where((tx) => tx.kind == TransactionKind.expense)
-        .fold(0, (sum, tx) => sum + tx.amount);
-  }
+  int get salesAndIncomeTotal =>
+      (salesMetric(ReportPeriodType.allTime).moneyValue ?? 0) +
+      nonSalesIncomeTotal;
 
-  int get grossProfit {
-    return _transactions.fold(0, (sum, tx) => sum + tx.profitContribution);
-  }
+  int get incomeTotal => salesAndIncomeTotal;
+
+  int get expenseTotal =>
+      expenseMetric(ReportPeriodType.allTime).moneyValue ?? 0;
+
+  int get grossProfit => profitMetric(ReportPeriodType.allTime).moneyValue ?? 0;
 
   int get walletTotal =>
-      _wallets.fold(0, (sum, wallet) => sum + wallet.balance);
+      _businessMetrics
+          .walletBalance(wallets: _wallets, allWallets: true)
+          .moneyValue ??
+      0;
 
   List<TransactionRecord> get recentTransactions {
     final sorted = [..._transactions]
@@ -121,7 +225,8 @@ class MikiezyState extends ChangeNotifier {
     return sorted.take(6).toList();
   }
 
-  int get monthlyTransactions => _transactions.length;
+  int get monthlyTransactions =>
+      transactionCountMetric(ReportPeriodType.thisMonth).countValue ?? 0;
 
   int get voiceRecordings {
     return _transactions.where((tx) => tx.note.trim().isNotEmpty).length + 309;
@@ -215,7 +320,10 @@ class MikiezyState extends ChangeNotifier {
     }
   }
 
-  Future<void> refreshProducts({bool showLoading = true}) async {
+  Future<void> refreshProducts({
+    bool showLoading = true,
+    bool rethrowErrors = false,
+  }) async {
     final localRepository = repository;
     if (localRepository == null) return;
 
@@ -235,6 +343,7 @@ class MikiezyState extends ChangeNotifier {
       _ensureCategoriesForProducts();
     } catch (error) {
       productsError = error.toString();
+      if (rethrowErrors) rethrow;
     } finally {
       productsLoading = false;
       notifyListeners();
@@ -268,81 +377,114 @@ class MikiezyState extends ChangeNotifier {
   }
 
   Future<TransactionRecord> saveDraft(TransactionDraft draft) async {
-    final wallet = _findOrCreateWallet(draft.walletName);
-    final category = _findCategoryByName(draft.categoryName, draft.kind);
-    final productsToSave = <Product>[];
-    final lines = <TransactionLine>[];
-    if (draft.lines.isNotEmpty) {
-      for (final draftLine in draft.lines) {
-        final product = draft.kind == TransactionKind.sale
-            ? _findOrCreateProductFromLine(draftLine)
-            : _findProductForLine(draftLine);
-        if (product != null &&
-            !productsToSave.any((item) => item.id == product.id)) {
-          productsToSave.add(product);
+    _validateDraftForSave(draft);
+    final previousProducts = List<Product>.of(_products);
+    final previousProductCategories = List<String>.of(_productCategories);
+    final previousWallets = List<Wallet>.of(_wallets);
+    final previousCategories = List<LedgerCategory>.of(_categories);
+    final previousTransactions = List<TransactionRecord>.of(_transactions);
+    final previousQueuedSyncCount = queuedSyncCount;
+    try {
+      final wallet = _findOrCreateWallet(draft.walletName);
+      final category = _findCategoryByName(draft.categoryName, draft.kind);
+      final productsToSave = <Product>[];
+      final productsById = <String, Product>{};
+      final lines = <TransactionLine>[];
+      if (draft.lines.isNotEmpty) {
+        for (final draftLine in draft.lines) {
+          final product = _findProductForLine(draftLine);
+          _rememberProduct(product, productsToSave, productsById);
+          lines.add(
+            TransactionLine(
+              productId: product?.id ?? draftLine.productId ?? '',
+              productName: draftLine.productName.trim(),
+              quantity: _sanitizeQuantity(draftLine.quantity),
+              unit: draftLine.unit,
+              unitPrice: draftLine.unitPrice,
+              costPrice: product?.costPrice ?? 0,
+              segment: draftLine.segment,
+              unitMultiplier: _unitMultiplierFor(product, draftLine.unit),
+            ),
+          );
         }
-        lines.add(
-          TransactionLine(
-            productId: product?.id ?? draftLine.productId ?? '',
-            productName: draftLine.productName.trim(),
-            quantity: draftLine.quantity.clamp(1, 999999),
-            unit: draftLine.unit,
-            unitPrice: draftLine.unitPrice,
-            costPrice: product?.costPrice ?? 0,
-            segment: draftLine.segment,
-          ),
-        );
-      }
-    } else if (draft.kind == TransactionKind.sale) {
-      final product = _findOrCreateProduct(draft);
-      productsToSave.add(product);
-      lines.add(
-        TransactionLine(
-          productId: product.id,
+      } else if (draft.kind == TransactionKind.sale) {
+        final legacyLine = TransactionDraftLine(
+          tempId: 'legacy-line-1',
           productName: draft.productName,
           quantity: draft.quantity,
           unit: draft.unit,
           unitPrice: draft.unitPrice,
-          costPrice: product.costPrice,
           segment: draft.segment,
-        ),
-      );
-    }
-    final tx = TransactionRecord(
-      id: _nextId('tx'),
-      kind: draft.kind,
-      createdAt: DateTime.now(),
-      walletId: wallet.id,
-      walletName: wallet.name,
-      categoryId: category.id,
-      categoryName: category.name,
-      lines: lines,
-      amount: draft.amount,
-      discount: draft.discount,
-      note: draft.note,
-      evidencePath: draft.evidencePath,
-      ocrSource: draft.ocrSource,
-      syncStatus: SyncStatus.queued,
-    );
-    _transactions.add(tx);
-    final updatedWallet = _updateWalletBalance(wallet.id, _walletDelta(tx));
-    queuedSyncCount += 1;
+        );
+        final product = _findProductForLine(legacyLine);
+        _rememberProduct(product, productsToSave, productsById);
+        lines.add(
+          TransactionLine(
+            productId: product?.id ?? '',
+            productName: draft.productName,
+            quantity: _sanitizeQuantity(draft.quantity),
+            unit: draft.unit,
+            unitPrice: draft.unitPrice,
+            costPrice: product?.costPrice ?? 0,
+            segment: draft.segment,
+            unitMultiplier: _unitMultiplierFor(product, draft.unit),
+          ),
+        );
+      }
 
-    try {
+      if (draft.kind == TransactionKind.sale) {
+        final stockUpdates = _stockService.applySaleStockChanges(
+          lines: lines,
+          productsById: productsById,
+        );
+        for (final product in stockUpdates) {
+          _replaceProduct(product);
+          _upsertProductForSave(productsToSave, product);
+          productsById[product.id] = product;
+        }
+      }
+
+      final tx = TransactionRecord(
+        id: _nextId('tx'),
+        kind: draft.kind,
+        createdAt: DateTime.now(),
+        walletId: wallet.id,
+        walletName: wallet.name,
+        categoryId: category.id,
+        categoryName: category.name,
+        lines: lines,
+        amount: draft.amount,
+        discount: draft.discount,
+        note: draft.note,
+        evidencePath: draft.evidencePath,
+        ocrSource: draft.ocrSource,
+        syncStatus: SyncStatus.queued,
+      );
+      _transactions.add(tx);
+      final updatedWallet = _updateWalletBalance(wallet.id, _walletDelta(tx));
+      queuedSyncCount += 1;
+
       await _saveTransactionGraph(
         transaction: tx,
         wallet: updatedWallet ?? wallet,
         category: category,
         products: productsToSave,
       );
+      await _learnFromVoiceDraft(draft, tx);
       await refreshTransactions(showLoading: false);
       lastTransactionSuccess = 'Transaksi berhasil disimpan.';
       transactionsError = null;
       notifyListeners();
       return tx;
     } catch (error) {
-      _transactions.removeWhere((transaction) => transaction.id == tx.id);
-      _replaceWallet(wallet);
+      _restoreSaveDraftState(
+        products: previousProducts,
+        productCategories: previousProductCategories,
+        wallets: previousWallets,
+        categories: previousCategories,
+        transactions: previousTransactions,
+        queuedSyncCount: previousQueuedSyncCount,
+      );
       transactionsError = error.toString();
       notifyListeners();
       rethrow;
@@ -358,6 +500,11 @@ class MikiezyState extends ChangeNotifier {
           ? 'Lain-lain'
           : product.category.trim(),
     );
+    _productValidator.validateOrThrow(
+      savedProduct,
+      existingProducts: _products,
+    );
+    _stockService.validateProduct(savedProduct);
     _ensureProductCategory(savedProduct.category);
     _products.add(savedProduct);
     queuedSyncCount += 1;
@@ -419,6 +566,12 @@ class MikiezyState extends ChangeNotifier {
           ? 'Lain-lain'
           : product.category.trim(),
     );
+    _productValidator.validateOrThrow(
+      cleanedProduct,
+      existingProducts: _products,
+      excludingProductId: cleanedProduct.id,
+    );
+    _stockService.validateProduct(cleanedProduct);
     final index = _products.indexWhere((item) => item.id == cleanedProduct.id);
     if (index == -1) return addProduct(cleanedProduct);
 
@@ -681,7 +834,7 @@ class MikiezyState extends ChangeNotifier {
   }
 
   void setVoiceSensitivity(int value) {
-    voiceSensitivity = value.clamp(0, 100);
+    voiceSensitivity = value.clamp(0, 100).toInt();
     _persist();
     notifyListeners();
   }
@@ -693,7 +846,26 @@ class MikiezyState extends ChangeNotifier {
   }
 
   void setSilentTimeoutSeconds(int value) {
-    silentTimeoutSeconds = value.clamp(3, 10);
+    silentTimeoutSeconds = value.clamp(1, 15).toInt();
+    _persist();
+    notifyListeners();
+  }
+
+  void toggleVoiceLearning(bool value) {
+    enableVoiceLearning = value;
+    _persist();
+    notifyListeners();
+  }
+
+  void toggleVoiceFinancialPrivacy(bool value) {
+    voiceFinancialPrivacyEnabled = value;
+    if (!value) maskVoiceFinancialValues = false;
+    _persist();
+    notifyListeners();
+  }
+
+  void toggleMaskVoiceFinancialValues(bool value) {
+    maskVoiceFinancialValues = voiceFinancialPrivacyEnabled && value;
     _persist();
     notifyListeners();
   }
@@ -717,20 +889,12 @@ class MikiezyState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Product _findOrCreateProduct(TransactionDraft draft) {
-    return _findOrCreateProductFromLine(
-      TransactionDraftLine(
-        tempId: 'legacy-line-1',
-        productName: draft.productName,
-        quantity: draft.quantity,
-        unit: draft.unit,
-        unitPrice: draft.unitPrice,
-        segment: draft.segment,
-      ),
-    );
-  }
-
   Product? _findProductForLine(TransactionDraftLine line) {
+    if (line.productStatus == TransactionDraftProductStatus.adHoc ||
+        line.productStatus == TransactionDraftProductStatus.notFound ||
+        line.productStatus == TransactionDraftProductStatus.ambiguous) {
+      return null;
+    }
     final productId = line.productId;
     if (productId != null && productId.trim().isNotEmpty) {
       final byId = _products.where((product) => product.id == productId);
@@ -744,32 +908,29 @@ class MikiezyState extends ChangeNotifier {
     return byName.isEmpty ? null : byName.first;
   }
 
-  Product _findOrCreateProductFromLine(TransactionDraftLine line) {
-    final matched = _findProductForLine(line);
-    if (matched != null) return matched;
-
-    final productName = line.productName.trim().isEmpty
-        ? 'Item transaksi'
-        : line.productName.trim();
-    final existing = _products.where(
-      (product) => product.name.toLowerCase() == productName.toLowerCase(),
-    );
-    if (existing.isNotEmpty) return existing.first;
-
-    final product = Product(
-      id: _nextId('prd'),
-      name: productName,
-      category: 'Belum dikategorikan',
-      costPrice: (line.unitPrice * 0.65).round(),
-      retailPrice: line.unitPrice,
-      wholesalePrice: (line.unitPrice * 0.9).round(),
-      packSize: 12,
-      cartonSize: 48,
-      stockPcs: 0,
-    );
-    _products.add(product);
-    _ensureProductCategory(product.category);
-    return product;
+  void _validateDraftForSave(TransactionDraft draft) {
+    final lines = draft.effectiveLines;
+    if (lines.isEmpty) {
+      throw StateError('Transaksi minimal memiliki satu item.');
+    }
+    for (final line in lines) {
+      if (line.productStatus == TransactionDraftProductStatus.ambiguous) {
+        throw StateError(
+          'Produk "${line.productName}" masih ambigu dan harus dipilih terlebih dahulu.',
+        );
+      }
+      if (line.productName.trim().isEmpty) {
+        throw StateError('Nama produk transaksi wajib diisi.');
+      }
+      if (line.quantity <= 0) {
+        throw StateError('Jumlah produk harus lebih dari 0.');
+      }
+      if (line.unitPrice <= 0) {
+        throw StateError(
+          'Harga produk "${line.productName}" harus lebih dari 0.',
+        );
+      }
+    }
   }
 
   void _ensureProductCategory(String name) {
@@ -814,6 +975,68 @@ class MikiezyState extends ChangeNotifier {
       if (wallet.name.toLowerCase() == name.toLowerCase()) return wallet;
     }
     return null;
+  }
+
+  double _sanitizeQuantity(double quantity) {
+    return quantity.clamp(0.001, 999999).toDouble();
+  }
+
+  double _unitMultiplierFor(Product? product, SaleUnit unit) {
+    return _stockService.unitMultiplierFor(product, unit);
+  }
+
+  void _rememberProduct(
+    Product? product,
+    List<Product> productsToSave,
+    Map<String, Product> productsById,
+  ) {
+    if (product == null) return;
+    productsById[product.id] = product;
+    _upsertProductForSave(productsToSave, product);
+  }
+
+  void _upsertProductForSave(List<Product> productsToSave, Product product) {
+    final index = productsToSave.indexWhere((item) => item.id == product.id);
+    if (index == -1) {
+      productsToSave.add(product);
+    } else {
+      productsToSave[index] = product;
+    }
+  }
+
+  void _replaceProduct(Product product) {
+    final index = _products.indexWhere((item) => item.id == product.id);
+    if (index == -1) {
+      _products.add(product);
+    } else {
+      _products[index] = product;
+    }
+  }
+
+  void _restoreSaveDraftState({
+    required List<Product> products,
+    required List<String> productCategories,
+    required List<Wallet> wallets,
+    required List<LedgerCategory> categories,
+    required List<TransactionRecord> transactions,
+    required int queuedSyncCount,
+  }) {
+    _products
+      ..clear()
+      ..addAll(products);
+    _productCategories
+      ..clear()
+      ..addAll(productCategories);
+    _wallets
+      ..clear()
+      ..addAll(wallets);
+    _categories
+      ..clear()
+      ..addAll(categories);
+    _transactions
+      ..clear()
+      ..addAll(transactions);
+    this.queuedSyncCount = queuedSyncCount;
   }
 
   Wallet? _updateWalletBalance(String walletId, int delta) {
@@ -872,15 +1095,6 @@ class MikiezyState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _replaceWallet(Wallet wallet) {
-    final index = _wallets.indexWhere((item) => item.id == wallet.id);
-    if (index == -1) {
-      _wallets.add(wallet);
-    } else {
-      _wallets[index] = wallet;
-    }
-  }
-
   void _ensureFinanceDefaults() {
     if (_wallets.isEmpty) {
       _wallets.add(
@@ -919,19 +1133,220 @@ class MikiezyState extends ChangeNotifier {
     final localRepository = repository;
     if (localRepository == null) return;
 
+    final productCategoryPositions = <String, int>{};
     for (final product in products) {
       final position = _productCategories.indexWhere(
         (item) => item.toLowerCase() == product.category.toLowerCase(),
       );
-      await localRepository.saveProductCategory(
-        product.category,
-        position == -1 ? _productCategories.length : position,
-      );
-      await localRepository.saveProduct(product);
+      productCategoryPositions[product.category] = position == -1
+          ? _productCategories.length
+          : position;
     }
-    await localRepository.saveTransactionCategory(category);
-    await localRepository.saveWallet(wallet);
-    await localRepository.saveTransaction(transaction);
+    await localRepository.saveTransactionGraph(
+      transaction: transaction,
+      wallet: wallet,
+      category: category,
+      products: products,
+      productCategoryPositions: productCategoryPositions,
+    );
+  }
+
+  Future<void> _learnFromVoiceDraft(
+    TransactionDraft draft,
+    TransactionRecord transaction,
+  ) async {
+    if (!enableVoiceLearning || transaction.kind != TransactionKind.sale) {
+      return;
+    }
+    final hasVoiceSource =
+        draft.rawText.trim().isNotEmpty ||
+        draft.effectiveLines.any((line) => line.note.trim().isNotEmpty);
+    if (!hasVoiceSource || transaction.lines.isEmpty) return;
+
+    final now = DateTime.now();
+    final productAliases = <VoiceProductAlias>[];
+    final unitAliases = <VoiceUnitAlias>[];
+    final corrections = <VoiceCorrection>[];
+    final draftLines = draft.effectiveLines;
+
+    for (var index = 0; index < transaction.lines.length; index++) {
+      final line = transaction.lines[index];
+      final draftLine = index < draftLines.length ? draftLines[index] : null;
+      final rawLine = (draftLine?.note.trim().isNotEmpty ?? false)
+          ? draftLine!.note
+          : draft.rawText;
+
+      final productAliasText = _productAliasCandidate(rawLine);
+      if (productAliasText != null) {
+        productAliases.add(_voiceProductAlias(productAliasText, line, now));
+      }
+
+      for (final aliasText in _spokenUnitAliases(rawLine, line.unit)) {
+        unitAliases.add(_voiceUnitAlias(aliasText, line.unit, now));
+      }
+
+      if (rawLine.trim().isNotEmpty &&
+          ((draftLine?.needsReview ?? false) ||
+              (draftLine?.warnings.isNotEmpty ?? false) ||
+              productAliasText != null)) {
+        corrections.add(
+          VoiceCorrection(
+            id: 'vc-${now.microsecondsSinceEpoch}-$index',
+            rawText: rawLine.trim(),
+            parsedProductName: draftLine?.productName,
+            correctedProductName: line.productName,
+            parsedUnit: draftLine?.unit.name,
+            correctedUnit: line.unit.name,
+            parsedQuantity: draftLine?.quantity,
+            correctedQuantity: line.quantity,
+            createdAt: now,
+          ),
+        );
+      }
+    }
+
+    if (productAliases.isEmpty && unitAliases.isEmpty && corrections.isEmpty) {
+      return;
+    }
+
+    _mergeVoiceLearning(
+      productAliases: productAliases,
+      unitAliases: unitAliases,
+      corrections: corrections,
+    );
+
+    final localRepository = repository;
+    if (localRepository == null) return;
+    try {
+      await localRepository.recordVoiceLearning(
+        productAliases: productAliases,
+        unitAliases: unitAliases,
+        corrections: corrections,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Gagal menyimpan voice learning: $error\n$stackTrace');
+    }
+  }
+
+  VoiceProductAlias _voiceProductAlias(
+    String aliasText,
+    TransactionLine line,
+    DateTime now,
+  ) {
+    final normalized = VoiceUnitDictionary.normalize(aliasText);
+    final existing = _voiceProductAliases
+        .where((alias) => alias.normalizedAlias == normalized)
+        .firstOrNull;
+    return VoiceProductAlias(
+      id: existing?.id ?? 'vpa-${_stableSlug(normalized)}',
+      aliasText: aliasText.trim(),
+      normalizedAlias: normalized,
+      productId: line.productId.trim().isEmpty ? null : line.productId,
+      canonicalProductName: line.productName,
+      hitCount: (existing?.hitCount ?? 0) + 1,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    );
+  }
+
+  VoiceUnitAlias _voiceUnitAlias(
+    String aliasText,
+    SaleUnit unit,
+    DateTime now,
+  ) {
+    final normalized = VoiceUnitDictionary.normalize(aliasText);
+    final existing = _voiceUnitAliases
+        .where((alias) => alias.normalizedAlias == normalized)
+        .firstOrNull;
+    return VoiceUnitAlias(
+      id: existing?.id ?? 'vua-${_stableSlug(normalized)}',
+      aliasText: aliasText.trim(),
+      normalizedAlias: normalized,
+      canonicalUnit: unit.name,
+      hitCount: (existing?.hitCount ?? 0) + 1,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    );
+  }
+
+  void _mergeVoiceLearning({
+    List<VoiceProductAlias> productAliases = const [],
+    List<VoiceUnitAlias> unitAliases = const [],
+    List<VoiceCorrection> corrections = const [],
+  }) {
+    for (final alias in productAliases) {
+      final index = _voiceProductAliases.indexWhere(
+        (item) => item.normalizedAlias == alias.normalizedAlias,
+      );
+      if (index == -1) {
+        _voiceProductAliases.add(alias);
+      } else {
+        _voiceProductAliases[index] = alias;
+      }
+    }
+    for (final alias in unitAliases) {
+      final index = _voiceUnitAliases.indexWhere(
+        (item) => item.normalizedAlias == alias.normalizedAlias,
+      );
+      if (index == -1) {
+        _voiceUnitAliases.add(alias);
+      } else {
+        _voiceUnitAliases[index] = alias;
+      }
+    }
+    _voiceCorrections.addAll(corrections);
+    if (_voiceCorrections.length > 500) {
+      _voiceCorrections.removeRange(0, _voiceCorrections.length - 500);
+    }
+  }
+
+  String? _productAliasCandidate(String rawLine) {
+    final normalized = VoiceUnitDictionary.normalize(rawLine);
+    if (normalized.isEmpty) return null;
+    final output = <String>[];
+    for (final token in normalized.split(' ')) {
+      if (_voiceLearningNoiseWords.contains(token)) continue;
+      if (_voiceLearningNumberWords.contains(token)) continue;
+      if (RegExp(r'^\d+([.,]\d+)?$').hasMatch(token)) continue;
+      if (VoiceUnitDictionary.canonicalUnit(
+            token,
+            aliases: _voiceUnitAliases,
+          ) !=
+          null) {
+        continue;
+      }
+      output.add(token);
+    }
+    if (output.isEmpty || output.length > 5) return null;
+    final candidate = output.join(' ').trim();
+    if (candidate.length < 2 || candidate.length > 48) return null;
+    return candidate;
+  }
+
+  List<String> _spokenUnitAliases(String rawLine, SaleUnit unit) {
+    final aliases = <String>[];
+    final normalized = VoiceUnitDictionary.normalize(rawLine);
+    for (final token in normalized.split(' ')) {
+      final canonical = VoiceUnitDictionary.canonicalUnit(
+        token,
+        aliases: _voiceUnitAliases,
+      );
+      if (canonical == null) continue;
+      if (VoiceUnitDictionary.saleUnitFor(canonical) != unit) continue;
+      if (!aliases.contains(token)) aliases.add(token);
+    }
+    return aliases;
+  }
+
+  String _stableSlug(String value) {
+    final slug = value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    return slug.isEmpty
+        ? DateTime.now().microsecondsSinceEpoch.toString()
+        : slug;
   }
 
   Future<void> _saveProductGraph(Product product) async {
@@ -956,13 +1371,6 @@ class MikiezyState extends ChangeNotifier {
     localStorageError = null;
   }
 
-  bool _isToday(DateTime date) {
-    final now = DateTime.now();
-    return date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
-  }
-
   MikiezySnapshot _snapshot() {
     return MikiezySnapshot(
       products: products,
@@ -970,6 +1378,9 @@ class MikiezyState extends ChangeNotifier {
       wallets: wallets,
       categories: categories,
       transactions: transactions,
+      voiceProductAliases: voiceProductAliases,
+      voiceUnitAliases: voiceUnitAliases,
+      voiceCorrections: voiceCorrections,
       pinEnabled: pinEnabled,
       biometricEnabled: biometricEnabled,
       cloudSyncEnabled: cloudSyncEnabled,
@@ -979,6 +1390,9 @@ class MikiezyState extends ChangeNotifier {
       voiceSensitivity: voiceSensitivity,
       handsfreeWakeWordEnabled: handsfreeWakeWordEnabled,
       silentTimeoutSeconds: silentTimeoutSeconds,
+      enableVoiceLearning: enableVoiceLearning,
+      voiceFinancialPrivacyEnabled: voiceFinancialPrivacyEnabled,
+      maskVoiceFinancialValues: maskVoiceFinancialValues,
       ownerName: ownerName,
       email: email,
       phone: phone,
@@ -1005,6 +1419,15 @@ class MikiezyState extends ChangeNotifier {
     _transactions
       ..clear()
       ..addAll(snapshot.transactions);
+    _voiceProductAliases
+      ..clear()
+      ..addAll(snapshot.voiceProductAliases);
+    _voiceUnitAliases
+      ..clear()
+      ..addAll(snapshot.voiceUnitAliases);
+    _voiceCorrections
+      ..clear()
+      ..addAll(snapshot.voiceCorrections);
     pinEnabled = snapshot.pinEnabled;
     biometricEnabled = snapshot.biometricEnabled;
     cloudSyncEnabled = snapshot.cloudSyncEnabled;
@@ -1014,6 +1437,9 @@ class MikiezyState extends ChangeNotifier {
     voiceSensitivity = snapshot.voiceSensitivity;
     handsfreeWakeWordEnabled = snapshot.handsfreeWakeWordEnabled;
     silentTimeoutSeconds = snapshot.silentTimeoutSeconds;
+    enableVoiceLearning = snapshot.enableVoiceLearning;
+    voiceFinancialPrivacyEnabled = snapshot.voiceFinancialPrivacyEnabled;
+    maskVoiceFinancialValues = snapshot.maskVoiceFinancialValues;
     ownerName = snapshot.ownerName;
     email = snapshot.email;
     phone = snapshot.phone;
@@ -1033,6 +1459,54 @@ class MikiezyState extends ChangeNotifier {
       }),
     );
   }
+
+  static const _voiceLearningNoiseWords = {
+    'catat',
+    'tolong',
+    'jual',
+    'penjualan',
+    'beli',
+    'belanja',
+    'harga',
+    'harganya',
+    'seharga',
+    'senilai',
+    'total',
+    'per',
+    'satuan',
+    'masing',
+    'masing-masing',
+    'diskon',
+    'potongan',
+    'ribu',
+    'rb',
+    'juta',
+    'jt',
+  };
+
+  static const _voiceLearningNumberWords = {
+    'nol',
+    'satu',
+    'se',
+    'sebuah',
+    'setengah',
+    'dua',
+    'tiga',
+    'empat',
+    'lima',
+    'enam',
+    'tujuh',
+    'delapan',
+    'sembilan',
+    'sepuluh',
+    'sebelas',
+    'dua belas',
+    'belas',
+    'puluh',
+    'seratus',
+    'ratus',
+    'seribu',
+  };
 
   static MikiezyState seeded({MikiezyRepository? repository}) {
     final now = DateTime.now();

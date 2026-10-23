@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../domain/services/quantity_formatter.dart';
+
 String rupiah(num value) {
   final sign = value < 0 ? '-' : '';
   final raw = value.abs().round().toString();
@@ -42,4 +44,15 @@ String timeLabel(DateTime date) {
 int intFromController(TextEditingController controller) {
   final text = controller.text.replaceAll(RegExp(r'[^0-9-]'), '');
   return int.tryParse(text) ?? 0;
+}
+
+double quantityFromController(TextEditingController controller) {
+  final text = controller.text
+      .replaceAll(',', '.')
+      .replaceAll(RegExp(r'[^0-9.-]'), '');
+  return double.tryParse(text) ?? 0;
+}
+
+String quantityLabel(num value) {
+  return QuantityFormatter.label(value);
 }

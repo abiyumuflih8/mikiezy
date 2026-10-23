@@ -218,7 +218,7 @@ class _ReceiptContent extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                '${line.quantity} ${line.unit.label} x ${rupiah(line.unitPrice)}',
+                                '${quantityLabel(line.quantity)} ${line.unit.label} x ${rupiah(line.unitPrice)}',
                                 style: const TextStyle(color: AppColors.muted),
                               ),
                             ),

@@ -6,6 +6,7 @@ import 'voice_parse_result.dart';
 import 'voice_parse_validator.dart';
 import 'voice_slot_extractor.dart';
 import 'voice_text_normalizer.dart';
+import 'voice_transaction_resolver.dart';
 
 class VoiceTransactionParserV2 {
   const VoiceTransactionParserV2({
@@ -13,6 +14,7 @@ class VoiceTransactionParserV2 {
     this.intentDetector = const VoiceIntentDetector(),
     this.slotExtractor = const VoiceSlotExtractor(),
     this.validator = const VoiceParseValidator(),
+    this.transactionResolver = const VoiceTransactionResolver(),
     this.draftAdapter = const VoiceDraftAdapter(),
   });
 
@@ -20,6 +22,7 @@ class VoiceTransactionParserV2 {
   final VoiceIntentDetector intentDetector;
   final VoiceSlotExtractor slotExtractor;
   final VoiceParseValidator validator;
+  final VoiceTransactionResolver transactionResolver;
   final VoiceDraftAdapter draftAdapter;
 
   VoiceParseResult parse(
@@ -48,9 +51,14 @@ class VoiceTransactionParserV2 {
       fieldConfidences: slots.fieldConfidences,
       warnings: slots.warnings,
     );
-    final validated = validator.validate(result);
+    final resolution = transactionResolver.resolve(result, context);
+    final validated = validator.validate(resolution.result);
     return validated.copyWith(
-      draft: draftAdapter.toTransactionDraft(validated, context),
+      draft: draftAdapter.toTransactionDraft(
+        validated,
+        context,
+        resolvedItems: resolution.items,
+      ),
     );
   }
 

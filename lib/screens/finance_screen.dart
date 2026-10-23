@@ -193,7 +193,8 @@ class _FinanceScreenState extends State<FinanceScreen> {
                   ),
                 );
                 navigator.pop();
-              } catch (_) {
+              } catch (error, stackTrace) {
+                debugPrint('Gagal menyimpan dompet: $error\n$stackTrace');
                 if (!mounted) return;
                 messenger.showSnackBar(
                   const SnackBar(content: Text('Dompet belum tersimpan.')),
@@ -269,7 +270,10 @@ class _FinanceScreenState extends State<FinanceScreen> {
                   ),
                 );
                 navigator.pop();
-              } catch (_) {
+              } catch (error, stackTrace) {
+                debugPrint(
+                  'Gagal menyimpan kategori keuangan: $error\n$stackTrace',
+                );
                 if (!mounted) return;
                 messenger.showSnackBar(
                   const SnackBar(content: Text('Kategori belum tersimpan.')),

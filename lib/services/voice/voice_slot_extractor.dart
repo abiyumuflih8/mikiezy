@@ -3,6 +3,7 @@ import 'indonesian_number_parser.dart';
 import 'money_parser.dart';
 import 'parsed_transaction_item.dart';
 import 'voice_parse_context.dart';
+import 'voice_unit_dictionary.dart';
 
 class VoiceSlotExtraction {
   const VoiceSlotExtraction({
@@ -34,7 +35,7 @@ class VoiceSlotExtractor {
     this.numberParser = const IndonesianNumberParser(),
   });
 
-  static const maxItemsPerTransaction = 30;
+  static const maxItemsPerTransaction = 100;
 
   final MoneyParser moneyParser;
   final IndonesianNumberParser numberParser;
@@ -59,7 +60,7 @@ class VoiceSlotExtractor {
         ]) ??
         0;
     final itemSource = _removeGlobalClauses(normalizedText);
-    final itemSegments = _splitItems(itemSource);
+    final itemSegments = _splitItems(itemSource, context);
     final limitedSegments = itemSegments.take(maxItemsPerTransaction).toList();
     if (itemSegments.length > maxItemsPerTransaction) {
       warnings.add(
@@ -103,12 +104,14 @@ class VoiceSlotExtractor {
   ) {
     final cleanedSegment = _stripIntentWords(segment).trim();
     final warnings = <String>[];
-    final quantity = _extractQuantity(cleanedSegment);
-    final unit = _extractUnit(cleanedSegment);
+    final quantity = _extractQuantity(cleanedSegment, context);
+    final unit = _extractUnit(cleanedSegment, context);
     final price = _extractPrice(cleanedSegment, quantity?.value);
     final product = context.matchProduct(cleanedSegment);
     final productName =
-        product?.name ?? _extractProductName(cleanedSegment, price, quantity);
+        product?.name ??
+        context.matchProductAliasName(cleanedSegment) ??
+        _extractProductName(cleanedSegment, price, quantity, context);
 
     if (productName == null || productName.trim().isEmpty) {
       warnings.add('Nama barang belum terbaca jelas.');
@@ -140,8 +143,8 @@ class VoiceSlotExtractor {
       matchedProductId: product?.id,
       quantity: quantity?.value ?? (kind == TransactionKind.sale ? 1 : null),
       unit:
-          unit ??
           quantity?.unit ??
+          unit ??
           (kind == TransactionKind.sale ? 'pcs' : null),
       unitPrice: price.unitPrice,
       lineTotal: price.lineTotal,
@@ -152,14 +155,14 @@ class VoiceSlotExtractor {
     );
   }
 
-  _QuantitySlot? _extractQuantity(String segment) {
+  _QuantitySlot? _extractQuantity(String segment, VoiceParseContext context) {
     final tokens = _tokens(segment);
     for (var i = 0; i < tokens.length; i++) {
       final parsed = numberParser.parseAt(tokens, i);
       if (parsed == null) continue;
       final unitIndex = i + parsed.consumedTokens;
       if (unitIndex >= tokens.length) continue;
-      final unit = _canonicalUnit(tokens[unitIndex]);
+      final unit = _canonicalUnit(tokens[unitIndex], context);
       if (unit == null) continue;
       return _QuantitySlot(
         value: parsed.value,
@@ -172,7 +175,7 @@ class VoiceSlotExtractor {
 
     if (tokens.length >= 2) {
       final parsed = numberParser.parseAt(tokens, 0);
-      if (parsed != null && _isLikelyBareQuantity(parsed, tokens)) {
+      if (parsed != null && _isLikelyBareQuantity(parsed, tokens, context)) {
         return _QuantitySlot(
           value: parsed.value,
           unit: 'pcs',
@@ -185,9 +188,9 @@ class VoiceSlotExtractor {
     return null;
   }
 
-  String? _extractUnit(String segment) {
+  String? _extractUnit(String segment, VoiceParseContext context) {
     for (final token in _tokens(segment)) {
-      final unit = _canonicalUnit(token);
+      final unit = _canonicalUnit(token, context);
       if (unit != null) return unit;
     }
     return null;
@@ -272,6 +275,7 @@ class VoiceSlotExtractor {
     String segment,
     _PriceSlot price,
     _QuantitySlot? quantity,
+    VoiceParseContext context,
   ) {
     var cleaned = _stripIntentWords(segment);
     cleaned = _removeWalletClause(cleaned);
@@ -304,12 +308,14 @@ class VoiceSlotExtractor {
       if (parsed != null) {
         final unitIndex = i + parsed.consumedTokens;
         if (unitIndex < tokens.length &&
-            _canonicalUnit(tokens[unitIndex]) != null) {
+            _canonicalUnit(tokens[unitIndex], context) != null) {
           i = unitIndex;
           continue;
         }
+        i += parsed.consumedTokens - 1;
+        continue;
       }
-      final unit = _canonicalUnit(tokens[i]);
+      final unit = _canonicalUnit(tokens[i], context);
       if (unit != null) continue;
       if (_noiseWords.contains(tokens[i])) continue;
       output.add(tokens[i]);
@@ -372,20 +378,191 @@ class VoiceSlotExtractor {
     return 'Lain-lain';
   }
 
-  List<String> _splitItems(String source) {
+  List<String> _splitItems(String source, VoiceParseContext context) {
     final normalized = source.replaceAll(
-      RegExp(r'\b(terus|lalu|kemudian)\b'),
+      RegExp(
+        r'\b(terus|lalu|kemudian|habis itu|habis|setelah itu|sesudah itu|berikutnya)\b',
+      ),
       ',',
     );
     return normalized
         .split(',')
-        .expand(_splitOnAndWhenSafe)
+        .expand((part) => _splitOnAndWhenSafe(part, context))
+        .expand((part) => _splitSequentialItems(part, context))
         .map((part) => part.trim())
         .where((part) => part.isNotEmpty)
         .toList();
   }
 
-  List<String> _splitOnAndWhenSafe(String segment) {
+  List<String> _splitSequentialItems(
+    String segment,
+    VoiceParseContext context,
+  ) {
+    final tokens = _tokens(segment);
+    if (tokens.isEmpty) return const [];
+
+    final catalogSegments = _splitOnCatalogProductStarts(
+      segment,
+      tokens,
+      context,
+    );
+    if (catalogSegments.length > 1) return catalogSegments;
+
+    final moneyCandidates = moneyParser.parseAll(segment);
+    if (moneyCandidates.length <= 1) return [segment];
+
+    final boundaries = <int>[];
+    for (var i = 0; i < moneyCandidates.length - 1; i++) {
+      final current = moneyCandidates[i];
+      final next = moneyCandidates[i + 1];
+      if (current.endToken >= next.startToken) continue;
+
+      final nextItemTokens = tokens.sublist(current.endToken, next.startToken);
+      final boundaryInsideGap = _quantityThenItemBoundaryInGap(
+        tokens,
+        current.endToken,
+        next.startToken,
+        context,
+      );
+      if (boundaryInsideGap != null) {
+        boundaries.add(boundaryInsideGap);
+      } else if (_looksSequentialItemStart(nextItemTokens, context)) {
+        boundaries.add(current.endToken);
+      }
+    }
+    if (boundaries.isEmpty) return [segment];
+
+    final parts = <String>[];
+    var start = 0;
+    for (final boundary in boundaries) {
+      final part = tokens.sublist(start, boundary).join(' ').trim();
+      if (part.isNotEmpty) parts.add(part);
+      start = boundary;
+    }
+    final tail = tokens.sublist(start).join(' ').trim();
+    if (tail.isNotEmpty) parts.add(tail);
+    return parts;
+  }
+
+  List<String> _splitOnCatalogProductStarts(
+    String segment,
+    List<String> tokens,
+    VoiceParseContext context,
+  ) {
+    if (context.products.isEmpty && context.productAliases.isEmpty) {
+      return [segment];
+    }
+
+    final phrasesByText = <String, List<String>>{};
+    for (final product in context.products) {
+      final normalized = VoiceParseContext.normalizeForMatch(product.name);
+      if (normalized.isNotEmpty) {
+        phrasesByText[normalized] = normalized.split(' ');
+      }
+    }
+    for (final alias in context.productAliases) {
+      final normalized = alias.normalizedAlias.trim().isEmpty
+          ? VoiceParseContext.normalizeForMatch(alias.aliasText)
+          : VoiceParseContext.normalizeForMatch(alias.normalizedAlias);
+      if (normalized.isNotEmpty) {
+        phrasesByText[normalized] = normalized.split(' ');
+      }
+    }
+    final phrases = phrasesByText.values.toList()
+      ..sort((left, right) => right.length.compareTo(left.length));
+    if (phrases.isEmpty) return [segment];
+
+    final productStarts = <int>[];
+    var index = 0;
+    while (index < tokens.length) {
+      List<String>? matchedPhrase;
+      for (final phrase in phrases) {
+        if (index + phrase.length > tokens.length) continue;
+        var matches = true;
+        for (var offset = 0; offset < phrase.length; offset++) {
+          if (tokens[index + offset] != phrase[offset]) {
+            matches = false;
+            break;
+          }
+        }
+        if (matches) {
+          matchedPhrase = phrase;
+          break;
+        }
+      }
+      if (matchedPhrase == null) {
+        index += 1;
+        continue;
+      }
+      productStarts.add(index);
+      index += matchedPhrase.length;
+    }
+    if (productStarts.length < 2) return [segment];
+
+    final parts = <String>[];
+    var start = 0;
+    for (final boundary in productStarts.skip(1)) {
+      final part = tokens.sublist(start, boundary).join(' ').trim();
+      if (part.isNotEmpty) parts.add(part);
+      start = boundary;
+    }
+    final tail = tokens.sublist(start).join(' ').trim();
+    if (tail.isNotEmpty) parts.add(tail);
+    if (parts.length < 2 ||
+        parts.any((part) => !_looksItemLike(part, context))) {
+      return [segment];
+    }
+    return parts;
+  }
+
+  int? _quantityThenItemBoundaryInGap(
+    List<String> tokens,
+    int gapStart,
+    int gapEnd,
+    VoiceParseContext context,
+  ) {
+    if (gapStart >= gapEnd) return null;
+    final gap = tokens.sublist(gapStart, gapEnd);
+    final parsed = numberParser.parseAt(gap, 0);
+    if (parsed == null) return null;
+    final unitIndex = parsed.consumedTokens;
+    if (unitIndex >= gap.length) return null;
+    if (_canonicalUnit(gap[unitIndex], context) == null) return null;
+
+    final nextItemStart = unitIndex + 1;
+    if (nextItemStart >= gap.length) return null;
+    final remainder = gap.sublist(nextItemStart);
+    if (!_looksSequentialItemStart(remainder, context)) return null;
+    return gapStart + nextItemStart;
+  }
+
+  bool _looksSequentialItemStart(
+    List<String> tokens,
+    VoiceParseContext context,
+  ) {
+    if (tokens.isEmpty) return false;
+    final first = tokens.first;
+    if (_nonItemBoundaryWords.contains(first)) return false;
+    final parsed = numberParser.parseAt(tokens, 0);
+    if (parsed != null) {
+      final unitIndex = parsed.consumedTokens;
+      if (unitIndex < tokens.length &&
+          _canonicalUnit(tokens[unitIndex], context) != null) {
+        return false;
+      }
+    }
+    final text = tokens.join(' ');
+    if (_looksItemLike(text, context)) return true;
+    return tokens.any((token) {
+      if (_noiseWords.contains(token)) return false;
+      if (_nonItemBoundaryWords.contains(token)) return false;
+      if (_canonicalUnit(token, context) != null) return false;
+      if (numberParser.isNumberToken(token)) return false;
+      return true;
+    });
+  }
+
+  List<String> _splitOnAndWhenSafe(String segment, VoiceParseContext context) {
     final pieces = segment
         .split(RegExp(r'\s+dan\s+'))
         .map((part) => part.trim())
@@ -396,7 +573,7 @@ class VoiceSlotExtractor {
     final result = <String>[pieces.first];
     for (final piece in pieces.skip(1)) {
       final previous = result.last;
-      if (_shouldSplitAnd(previous, piece)) {
+      if (_shouldSplitAnd(previous, piece, context)) {
         result.add(piece);
       } else {
         result[result.length - 1] = '$previous dan $piece';
@@ -405,30 +582,34 @@ class VoiceSlotExtractor {
     return result;
   }
 
-  bool _shouldSplitAnd(String left, String right) {
-    return _looksCompleteEnoughForSeparator(left) && _looksItemLike(right);
+  bool _shouldSplitAnd(String left, String right, VoiceParseContext context) {
+    return _looksCompleteEnoughForSeparator(left, context) &&
+        _looksItemLike(right, context);
   }
 
-  bool _looksCompleteEnoughForSeparator(String segment) {
+  bool _looksCompleteEnoughForSeparator(
+    String segment,
+    VoiceParseContext context,
+  ) {
     return moneyParser.parseAll(segment).isNotEmpty ||
-        _hasExplicitQuantity(segment);
+        _hasExplicitQuantity(segment, context);
   }
 
-  bool _looksItemLike(String segment) {
+  bool _looksItemLike(String segment, VoiceParseContext context) {
     return moneyParser.parseAll(segment).isNotEmpty ||
-        _hasExplicitQuantity(segment) ||
-        _hasBareLeadingQuantity(segment);
+        _hasExplicitQuantity(segment, context) ||
+        _hasBareLeadingQuantity(segment, context);
   }
 
-  bool _hasExplicitQuantity(String segment) {
-    return _extractQuantity(segment)?.hasExplicitUnit ?? false;
+  bool _hasExplicitQuantity(String segment, VoiceParseContext context) {
+    return _extractQuantity(segment, context)?.hasExplicitUnit ?? false;
   }
 
-  bool _hasBareLeadingQuantity(String segment) {
+  bool _hasBareLeadingQuantity(String segment, VoiceParseContext context) {
     final tokens = _tokens(segment);
     if (tokens.length < 2) return false;
     final parsed = numberParser.parseAt(tokens, 0);
-    return parsed != null && _isLikelyBareQuantity(parsed, tokens);
+    return parsed != null && _isLikelyBareQuantity(parsed, tokens, context);
   }
 
   String _removeGlobalClauses(String text) {
@@ -450,7 +631,7 @@ class VoiceSlotExtractor {
     return text
         .replaceAll(
           RegExp(
-            r'\b(catat|tolong|jual|penjualan|beli|belanja|pengeluaran|pemasukan|terima uang|pendapatan|modal masuk)\b',
+            r'\b(nike zakat|catat|tolong|jual|penjualan|beli|belanja|pengeluaran|pemasukan|terima uang|pendapatan|modal masuk|oke|ok)\b',
           ),
           ' ',
         )
@@ -482,32 +663,24 @@ class VoiceSlotExtractor {
         .toList();
   }
 
-  String? _canonicalUnit(String token) {
-    return const {
-      'pcs': 'pcs',
-      'pc': 'pcs',
-      'buah': 'buah',
-      'porsi': 'porsi',
-      'gelas': 'gelas',
-      'kilo': 'kilo',
-      'kg': 'kilo',
-      'bungkus': 'bungkus',
-      'pack': 'pack',
-      'pak': 'pack',
-      'karton': 'karton',
-      'dus': 'karton',
-      'box': 'karton',
-      'botol': 'botol',
-    }[token];
+  String? _canonicalUnit(String token, VoiceParseContext context) {
+    return VoiceUnitDictionary.canonicalUnit(
+      token,
+      aliases: context.unitAliases,
+    );
   }
 
-  bool _isLikelyBareQuantity(ParsedNumber parsed, List<String> tokens) {
+  bool _isLikelyBareQuantity(
+    ParsedNumber parsed,
+    List<String> tokens,
+    VoiceParseContext context,
+  ) {
     if (parsed.value <= 0 || parsed.value >= 1000) return false;
     if (parsed.rawText.split(' ').any(_isMoneyScaleWord)) return false;
     final nextIndex = parsed.consumedTokens;
     if (nextIndex >= tokens.length) return false;
     final next = tokens[nextIndex];
-    if (_canonicalUnit(next) != null) return false;
+    if (_canonicalUnit(next, context) != null) return false;
     if (_priceHintWords.contains(next)) return false;
     return true;
   }
@@ -541,6 +714,18 @@ class VoiceSlotExtractor {
     'apa',
     'nama',
     'namanya',
+    'ada',
+    'oke',
+    'ok',
+    'tadi',
+    'udah',
+    'sudah',
+    'bener',
+    'benar',
+    'habis',
+    'iya',
+    'ya',
+    'itulah',
   };
 
   static const _priceHintWords = {
@@ -553,6 +738,25 @@ class VoiceSlotExtractor {
     'satuan',
     'masing-masing',
     'masing',
+  };
+
+  static const _nonItemBoundaryWords = {
+    'diskon',
+    'potongan',
+    'total',
+    'harganya',
+    'harga',
+    'seharga',
+    'senilai',
+    'per',
+    'satuan',
+    'masing-masing',
+    'masing',
+    'pakai',
+    'via',
+    'menggunakan',
+    'masuk',
+    'dompet',
   };
 }
 

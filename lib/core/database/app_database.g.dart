@@ -575,13 +575,52 @@ class $ProductsTable extends Products
     'stockPcs',
   );
   @override
-  late final GeneratedColumn<int> stockPcs = GeneratedColumn<int>(
+  late final GeneratedColumn<double> stockPcs = GeneratedColumn<double>(
     'stock_pcs',
     aliasedName,
     false,
-    type: DriftSqlType.int,
+    type: DriftSqlType.double,
     requiredDuringInsert: false,
-    defaultValue: const Constant(0),
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _trackStockMeta = const VerificationMeta(
+    'trackStock',
+  );
+  @override
+  late final GeneratedColumn<bool> trackStock = GeneratedColumn<bool>(
+    'track_stock',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("track_stock" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _baseUnitMeta = const VerificationMeta(
+    'baseUnit',
+  );
+  @override
+  late final GeneratedColumn<String> baseUnit = GeneratedColumn<String>(
+    'base_unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pcs'),
+  );
+  static const VerificationMeta _minStockMeta = const VerificationMeta(
+    'minStock',
+  );
+  @override
+  late final GeneratedColumn<double> minStock = GeneratedColumn<double>(
+    'min_stock',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(5.0),
   );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
@@ -642,6 +681,9 @@ class $ProductsTable extends Products
     packSize,
     cartonSize,
     stockPcs,
+    trackStock,
+    baseUnit,
+    minStock,
     createdAt,
     updatedAt,
     deletedAt,
@@ -729,6 +771,24 @@ class $ProductsTable extends Products
         stockPcs.isAcceptableOrUnknown(data['stock_pcs']!, _stockPcsMeta),
       );
     }
+    if (data.containsKey('track_stock')) {
+      context.handle(
+        _trackStockMeta,
+        trackStock.isAcceptableOrUnknown(data['track_stock']!, _trackStockMeta),
+      );
+    }
+    if (data.containsKey('base_unit')) {
+      context.handle(
+        _baseUnitMeta,
+        baseUnit.isAcceptableOrUnknown(data['base_unit']!, _baseUnitMeta),
+      );
+    }
+    if (data.containsKey('min_stock')) {
+      context.handle(
+        _minStockMeta,
+        minStock.isAcceptableOrUnknown(data['min_stock']!, _minStockMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -799,8 +859,20 @@ class $ProductsTable extends Products
         data['${effectivePrefix}carton_size'],
       )!,
       stockPcs: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.double,
         data['${effectivePrefix}stock_pcs'],
+      )!,
+      trackStock: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}track_stock'],
+      )!,
+      baseUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}base_unit'],
+      )!,
+      minStock: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}min_stock'],
       )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
@@ -837,7 +909,10 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
   final int wholesalePrice;
   final int packSize;
   final int cartonSize;
-  final int stockPcs;
+  final double stockPcs;
+  final bool trackStock;
+  final String baseUnit;
+  final double minStock;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -853,6 +928,9 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     required this.packSize,
     required this.cartonSize,
     required this.stockPcs,
+    required this.trackStock,
+    required this.baseUnit,
+    required this.minStock,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -872,7 +950,10 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     map['wholesale_price'] = Variable<int>(wholesalePrice);
     map['pack_size'] = Variable<int>(packSize);
     map['carton_size'] = Variable<int>(cartonSize);
-    map['stock_pcs'] = Variable<int>(stockPcs);
+    map['stock_pcs'] = Variable<double>(stockPcs);
+    map['track_stock'] = Variable<bool>(trackStock);
+    map['base_unit'] = Variable<String>(baseUnit);
+    map['min_stock'] = Variable<double>(minStock);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
@@ -896,6 +977,9 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
       packSize: Value(packSize),
       cartonSize: Value(cartonSize),
       stockPcs: Value(stockPcs),
+      trackStock: Value(trackStock),
+      baseUnit: Value(baseUnit),
+      minStock: Value(minStock),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent
@@ -922,7 +1006,10 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
       wholesalePrice: serializer.fromJson<int>(json['wholesalePrice']),
       packSize: serializer.fromJson<int>(json['packSize']),
       cartonSize: serializer.fromJson<int>(json['cartonSize']),
-      stockPcs: serializer.fromJson<int>(json['stockPcs']),
+      stockPcs: serializer.fromJson<double>(json['stockPcs']),
+      trackStock: serializer.fromJson<bool>(json['trackStock']),
+      baseUnit: serializer.fromJson<String>(json['baseUnit']),
+      minStock: serializer.fromJson<double>(json['minStock']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -942,7 +1029,10 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
       'wholesalePrice': serializer.toJson<int>(wholesalePrice),
       'packSize': serializer.toJson<int>(packSize),
       'cartonSize': serializer.toJson<int>(cartonSize),
-      'stockPcs': serializer.toJson<int>(stockPcs),
+      'stockPcs': serializer.toJson<double>(stockPcs),
+      'trackStock': serializer.toJson<bool>(trackStock),
+      'baseUnit': serializer.toJson<String>(baseUnit),
+      'minStock': serializer.toJson<double>(minStock),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -960,7 +1050,10 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     int? wholesalePrice,
     int? packSize,
     int? cartonSize,
-    int? stockPcs,
+    double? stockPcs,
+    bool? trackStock,
+    String? baseUnit,
+    double? minStock,
     DateTime? createdAt,
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
@@ -976,6 +1069,9 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     packSize: packSize ?? this.packSize,
     cartonSize: cartonSize ?? this.cartonSize,
     stockPcs: stockPcs ?? this.stockPcs,
+    trackStock: trackStock ?? this.trackStock,
+    baseUnit: baseUnit ?? this.baseUnit,
+    minStock: minStock ?? this.minStock,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -1003,6 +1099,11 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
           ? data.cartonSize.value
           : this.cartonSize,
       stockPcs: data.stockPcs.present ? data.stockPcs.value : this.stockPcs,
+      trackStock: data.trackStock.present
+          ? data.trackStock.value
+          : this.trackStock,
+      baseUnit: data.baseUnit.present ? data.baseUnit.value : this.baseUnit,
+      minStock: data.minStock.present ? data.minStock.value : this.minStock,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -1025,6 +1126,9 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
           ..write('packSize: $packSize, ')
           ..write('cartonSize: $cartonSize, ')
           ..write('stockPcs: $stockPcs, ')
+          ..write('trackStock: $trackStock, ')
+          ..write('baseUnit: $baseUnit, ')
+          ..write('minStock: $minStock, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -1045,6 +1149,9 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     packSize,
     cartonSize,
     stockPcs,
+    trackStock,
+    baseUnit,
+    minStock,
     createdAt,
     updatedAt,
     deletedAt,
@@ -1064,6 +1171,9 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
           other.packSize == this.packSize &&
           other.cartonSize == this.cartonSize &&
           other.stockPcs == this.stockPcs &&
+          other.trackStock == this.trackStock &&
+          other.baseUnit == this.baseUnit &&
+          other.minStock == this.minStock &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
@@ -1080,7 +1190,10 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
   final Value<int> wholesalePrice;
   final Value<int> packSize;
   final Value<int> cartonSize;
-  final Value<int> stockPcs;
+  final Value<double> stockPcs;
+  final Value<bool> trackStock;
+  final Value<String> baseUnit;
+  final Value<double> minStock;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
@@ -1097,6 +1210,9 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     this.packSize = const Value.absent(),
     this.cartonSize = const Value.absent(),
     this.stockPcs = const Value.absent(),
+    this.trackStock = const Value.absent(),
+    this.baseUnit = const Value.absent(),
+    this.minStock = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -1114,6 +1230,9 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     this.packSize = const Value.absent(),
     this.cartonSize = const Value.absent(),
     this.stockPcs = const Value.absent(),
+    this.trackStock = const Value.absent(),
+    this.baseUnit = const Value.absent(),
+    this.minStock = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -1131,7 +1250,10 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     Expression<int>? wholesalePrice,
     Expression<int>? packSize,
     Expression<int>? cartonSize,
-    Expression<int>? stockPcs,
+    Expression<double>? stockPcs,
+    Expression<bool>? trackStock,
+    Expression<String>? baseUnit,
+    Expression<double>? minStock,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
@@ -1150,6 +1272,9 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
       if (packSize != null) 'pack_size': packSize,
       if (cartonSize != null) 'carton_size': cartonSize,
       if (stockPcs != null) 'stock_pcs': stockPcs,
+      if (trackStock != null) 'track_stock': trackStock,
+      if (baseUnit != null) 'base_unit': baseUnit,
+      if (minStock != null) 'min_stock': minStock,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -1168,7 +1293,10 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     Value<int>? wholesalePrice,
     Value<int>? packSize,
     Value<int>? cartonSize,
-    Value<int>? stockPcs,
+    Value<double>? stockPcs,
+    Value<bool>? trackStock,
+    Value<String>? baseUnit,
+    Value<double>? minStock,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
@@ -1186,6 +1314,9 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
       packSize: packSize ?? this.packSize,
       cartonSize: cartonSize ?? this.cartonSize,
       stockPcs: stockPcs ?? this.stockPcs,
+      trackStock: trackStock ?? this.trackStock,
+      baseUnit: baseUnit ?? this.baseUnit,
+      minStock: minStock ?? this.minStock,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -1227,7 +1358,16 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
       map['carton_size'] = Variable<int>(cartonSize.value);
     }
     if (stockPcs.present) {
-      map['stock_pcs'] = Variable<int>(stockPcs.value);
+      map['stock_pcs'] = Variable<double>(stockPcs.value);
+    }
+    if (trackStock.present) {
+      map['track_stock'] = Variable<bool>(trackStock.value);
+    }
+    if (baseUnit.present) {
+      map['base_unit'] = Variable<String>(baseUnit.value);
+    }
+    if (minStock.present) {
+      map['min_stock'] = Variable<double>(minStock.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -1260,6 +1400,9 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
           ..write('packSize: $packSize, ')
           ..write('cartonSize: $cartonSize, ')
           ..write('stockPcs: $stockPcs, ')
+          ..write('trackStock: $trackStock, ')
+          ..write('baseUnit: $baseUnit, ')
+          ..write('minStock: $minStock, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -3328,13 +3471,13 @@ class $TransactionLinesTable extends TransactionLines
     'quantity',
   );
   @override
-  late final GeneratedColumn<int> quantity = GeneratedColumn<int>(
+  late final GeneratedColumn<double> quantity = GeneratedColumn<double>(
     'quantity',
     aliasedName,
     false,
-    type: DriftSqlType.int,
+    type: DriftSqlType.double,
     requiredDuringInsert: false,
-    defaultValue: const Constant(1),
+    defaultValue: const Constant(1.0),
   );
   static const VerificationMeta _unitMeta = const VerificationMeta('unit');
   @override
@@ -3384,13 +3527,13 @@ class $TransactionLinesTable extends TransactionLines
     'unitMultiplier',
   );
   @override
-  late final GeneratedColumn<int> unitMultiplier = GeneratedColumn<int>(
+  late final GeneratedColumn<double> unitMultiplier = GeneratedColumn<double>(
     'unit_multiplier',
     aliasedName,
     false,
-    type: DriftSqlType.int,
+    type: DriftSqlType.double,
     requiredDuringInsert: false,
-    defaultValue: const Constant(1),
+    defaultValue: const Constant(1.0),
   );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
@@ -3549,7 +3692,7 @@ class $TransactionLinesTable extends TransactionLines
         data['${effectivePrefix}position'],
       )!,
       quantity: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.double,
         data['${effectivePrefix}quantity'],
       )!,
       unit: attachedDatabase.typeMapping.read(
@@ -3569,7 +3712,7 @@ class $TransactionLinesTable extends TransactionLines
         data['${effectivePrefix}segment'],
       )!,
       unitMultiplier: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.double,
         data['${effectivePrefix}unit_multiplier'],
       )!,
       createdAt: attachedDatabase.typeMapping.read(
@@ -3592,12 +3735,12 @@ class TransactionLineRow extends DataClass
   final String? productId;
   final String productNameSnapshot;
   final int position;
-  final int quantity;
+  final double quantity;
   final String unit;
   final int unitPrice;
   final int costPrice;
   final String segment;
-  final int unitMultiplier;
+  final double unitMultiplier;
   final DateTime createdAt;
   const TransactionLineRow({
     required this.id,
@@ -3623,12 +3766,12 @@ class TransactionLineRow extends DataClass
     }
     map['product_name_snapshot'] = Variable<String>(productNameSnapshot);
     map['position'] = Variable<int>(position);
-    map['quantity'] = Variable<int>(quantity);
+    map['quantity'] = Variable<double>(quantity);
     map['unit'] = Variable<String>(unit);
     map['unit_price'] = Variable<int>(unitPrice);
     map['cost_price'] = Variable<int>(costPrice);
     map['segment'] = Variable<String>(segment);
-    map['unit_multiplier'] = Variable<int>(unitMultiplier);
+    map['unit_multiplier'] = Variable<double>(unitMultiplier);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -3665,12 +3808,12 @@ class TransactionLineRow extends DataClass
         json['productNameSnapshot'],
       ),
       position: serializer.fromJson<int>(json['position']),
-      quantity: serializer.fromJson<int>(json['quantity']),
+      quantity: serializer.fromJson<double>(json['quantity']),
       unit: serializer.fromJson<String>(json['unit']),
       unitPrice: serializer.fromJson<int>(json['unitPrice']),
       costPrice: serializer.fromJson<int>(json['costPrice']),
       segment: serializer.fromJson<String>(json['segment']),
-      unitMultiplier: serializer.fromJson<int>(json['unitMultiplier']),
+      unitMultiplier: serializer.fromJson<double>(json['unitMultiplier']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -3683,12 +3826,12 @@ class TransactionLineRow extends DataClass
       'productId': serializer.toJson<String?>(productId),
       'productNameSnapshot': serializer.toJson<String>(productNameSnapshot),
       'position': serializer.toJson<int>(position),
-      'quantity': serializer.toJson<int>(quantity),
+      'quantity': serializer.toJson<double>(quantity),
       'unit': serializer.toJson<String>(unit),
       'unitPrice': serializer.toJson<int>(unitPrice),
       'costPrice': serializer.toJson<int>(costPrice),
       'segment': serializer.toJson<String>(segment),
-      'unitMultiplier': serializer.toJson<int>(unitMultiplier),
+      'unitMultiplier': serializer.toJson<double>(unitMultiplier),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -3699,12 +3842,12 @@ class TransactionLineRow extends DataClass
     Value<String?> productId = const Value.absent(),
     String? productNameSnapshot,
     int? position,
-    int? quantity,
+    double? quantity,
     String? unit,
     int? unitPrice,
     int? costPrice,
     String? segment,
-    int? unitMultiplier,
+    double? unitMultiplier,
     DateTime? createdAt,
   }) => TransactionLineRow(
     id: id ?? this.id,
@@ -3801,12 +3944,12 @@ class TransactionLinesCompanion extends UpdateCompanion<TransactionLineRow> {
   final Value<String?> productId;
   final Value<String> productNameSnapshot;
   final Value<int> position;
-  final Value<int> quantity;
+  final Value<double> quantity;
   final Value<String> unit;
   final Value<int> unitPrice;
   final Value<int> costPrice;
   final Value<String> segment;
-  final Value<int> unitMultiplier;
+  final Value<double> unitMultiplier;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const TransactionLinesCompanion({
@@ -3849,12 +3992,12 @@ class TransactionLinesCompanion extends UpdateCompanion<TransactionLineRow> {
     Expression<String>? productId,
     Expression<String>? productNameSnapshot,
     Expression<int>? position,
-    Expression<int>? quantity,
+    Expression<double>? quantity,
     Expression<String>? unit,
     Expression<int>? unitPrice,
     Expression<int>? costPrice,
     Expression<String>? segment,
-    Expression<int>? unitMultiplier,
+    Expression<double>? unitMultiplier,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -3882,12 +4025,12 @@ class TransactionLinesCompanion extends UpdateCompanion<TransactionLineRow> {
     Value<String?>? productId,
     Value<String>? productNameSnapshot,
     Value<int>? position,
-    Value<int>? quantity,
+    Value<double>? quantity,
     Value<String>? unit,
     Value<int>? unitPrice,
     Value<int>? costPrice,
     Value<String>? segment,
-    Value<int>? unitMultiplier,
+    Value<double>? unitMultiplier,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -3929,7 +4072,7 @@ class TransactionLinesCompanion extends UpdateCompanion<TransactionLineRow> {
       map['position'] = Variable<int>(position.value);
     }
     if (quantity.present) {
-      map['quantity'] = Variable<int>(quantity.value);
+      map['quantity'] = Variable<double>(quantity.value);
     }
     if (unit.present) {
       map['unit'] = Variable<String>(unit.value);
@@ -3944,7 +4087,7 @@ class TransactionLinesCompanion extends UpdateCompanion<TransactionLineRow> {
       map['segment'] = Variable<String>(segment.value);
     }
     if (unitMultiplier.present) {
-      map['unit_multiplier'] = Variable<int>(unitMultiplier.value);
+      map['unit_multiplier'] = Variable<double>(unitMultiplier.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -4857,6 +5000,2552 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingRow> {
   }
 }
 
+class $VoiceProductAliasesTable extends VoiceProductAliases
+    with TableInfo<$VoiceProductAliasesTable, VoiceProductAliasRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VoiceProductAliasesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _aliasTextMeta = const VerificationMeta(
+    'aliasText',
+  );
+  @override
+  late final GeneratedColumn<String> aliasText = GeneratedColumn<String>(
+    'alias_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _normalizedAliasMeta = const VerificationMeta(
+    'normalizedAlias',
+  );
+  @override
+  late final GeneratedColumn<String> normalizedAlias = GeneratedColumn<String>(
+    'normalized_alias',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES products (id)',
+    ),
+  );
+  static const VerificationMeta _canonicalProductNameMeta =
+      const VerificationMeta('canonicalProductName');
+  @override
+  late final GeneratedColumn<String> canonicalProductName =
+      GeneratedColumn<String>(
+        'canonical_product_name',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _hitCountMeta = const VerificationMeta(
+    'hitCount',
+  );
+  @override
+  late final GeneratedColumn<int> hitCount = GeneratedColumn<int>(
+    'hit_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    aliasText,
+    normalizedAlias,
+    productId,
+    canonicalProductName,
+    hitCount,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'voice_product_aliases';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<VoiceProductAliasRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('alias_text')) {
+      context.handle(
+        _aliasTextMeta,
+        aliasText.isAcceptableOrUnknown(data['alias_text']!, _aliasTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_aliasTextMeta);
+    }
+    if (data.containsKey('normalized_alias')) {
+      context.handle(
+        _normalizedAliasMeta,
+        normalizedAlias.isAcceptableOrUnknown(
+          data['normalized_alias']!,
+          _normalizedAliasMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_normalizedAliasMeta);
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    }
+    if (data.containsKey('canonical_product_name')) {
+      context.handle(
+        _canonicalProductNameMeta,
+        canonicalProductName.isAcceptableOrUnknown(
+          data['canonical_product_name']!,
+          _canonicalProductNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_canonicalProductNameMeta);
+    }
+    if (data.containsKey('hit_count')) {
+      context.handle(
+        _hitCountMeta,
+        hitCount.isAcceptableOrUnknown(data['hit_count']!, _hitCountMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {normalizedAlias},
+  ];
+  @override
+  VoiceProductAliasRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VoiceProductAliasRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      aliasText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}alias_text'],
+      )!,
+      normalizedAlias: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}normalized_alias'],
+      )!,
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      ),
+      canonicalProductName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_product_name'],
+      )!,
+      hitCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}hit_count'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $VoiceProductAliasesTable createAlias(String alias) {
+    return $VoiceProductAliasesTable(attachedDatabase, alias);
+  }
+}
+
+class VoiceProductAliasRow extends DataClass
+    implements Insertable<VoiceProductAliasRow> {
+  final String id;
+  final String aliasText;
+  final String normalizedAlias;
+  final String? productId;
+  final String canonicalProductName;
+  final int hitCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const VoiceProductAliasRow({
+    required this.id,
+    required this.aliasText,
+    required this.normalizedAlias,
+    this.productId,
+    required this.canonicalProductName,
+    required this.hitCount,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['alias_text'] = Variable<String>(aliasText);
+    map['normalized_alias'] = Variable<String>(normalizedAlias);
+    if (!nullToAbsent || productId != null) {
+      map['product_id'] = Variable<String>(productId);
+    }
+    map['canonical_product_name'] = Variable<String>(canonicalProductName);
+    map['hit_count'] = Variable<int>(hitCount);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  VoiceProductAliasesCompanion toCompanion(bool nullToAbsent) {
+    return VoiceProductAliasesCompanion(
+      id: Value(id),
+      aliasText: Value(aliasText),
+      normalizedAlias: Value(normalizedAlias),
+      productId: productId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productId),
+      canonicalProductName: Value(canonicalProductName),
+      hitCount: Value(hitCount),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory VoiceProductAliasRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VoiceProductAliasRow(
+      id: serializer.fromJson<String>(json['id']),
+      aliasText: serializer.fromJson<String>(json['aliasText']),
+      normalizedAlias: serializer.fromJson<String>(json['normalizedAlias']),
+      productId: serializer.fromJson<String?>(json['productId']),
+      canonicalProductName: serializer.fromJson<String>(
+        json['canonicalProductName'],
+      ),
+      hitCount: serializer.fromJson<int>(json['hitCount']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'aliasText': serializer.toJson<String>(aliasText),
+      'normalizedAlias': serializer.toJson<String>(normalizedAlias),
+      'productId': serializer.toJson<String?>(productId),
+      'canonicalProductName': serializer.toJson<String>(canonicalProductName),
+      'hitCount': serializer.toJson<int>(hitCount),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  VoiceProductAliasRow copyWith({
+    String? id,
+    String? aliasText,
+    String? normalizedAlias,
+    Value<String?> productId = const Value.absent(),
+    String? canonicalProductName,
+    int? hitCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => VoiceProductAliasRow(
+    id: id ?? this.id,
+    aliasText: aliasText ?? this.aliasText,
+    normalizedAlias: normalizedAlias ?? this.normalizedAlias,
+    productId: productId.present ? productId.value : this.productId,
+    canonicalProductName: canonicalProductName ?? this.canonicalProductName,
+    hitCount: hitCount ?? this.hitCount,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  VoiceProductAliasRow copyWithCompanion(VoiceProductAliasesCompanion data) {
+    return VoiceProductAliasRow(
+      id: data.id.present ? data.id.value : this.id,
+      aliasText: data.aliasText.present ? data.aliasText.value : this.aliasText,
+      normalizedAlias: data.normalizedAlias.present
+          ? data.normalizedAlias.value
+          : this.normalizedAlias,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      canonicalProductName: data.canonicalProductName.present
+          ? data.canonicalProductName.value
+          : this.canonicalProductName,
+      hitCount: data.hitCount.present ? data.hitCount.value : this.hitCount,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VoiceProductAliasRow(')
+          ..write('id: $id, ')
+          ..write('aliasText: $aliasText, ')
+          ..write('normalizedAlias: $normalizedAlias, ')
+          ..write('productId: $productId, ')
+          ..write('canonicalProductName: $canonicalProductName, ')
+          ..write('hitCount: $hitCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    aliasText,
+    normalizedAlias,
+    productId,
+    canonicalProductName,
+    hitCount,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VoiceProductAliasRow &&
+          other.id == this.id &&
+          other.aliasText == this.aliasText &&
+          other.normalizedAlias == this.normalizedAlias &&
+          other.productId == this.productId &&
+          other.canonicalProductName == this.canonicalProductName &&
+          other.hitCount == this.hitCount &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class VoiceProductAliasesCompanion
+    extends UpdateCompanion<VoiceProductAliasRow> {
+  final Value<String> id;
+  final Value<String> aliasText;
+  final Value<String> normalizedAlias;
+  final Value<String?> productId;
+  final Value<String> canonicalProductName;
+  final Value<int> hitCount;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const VoiceProductAliasesCompanion({
+    this.id = const Value.absent(),
+    this.aliasText = const Value.absent(),
+    this.normalizedAlias = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.canonicalProductName = const Value.absent(),
+    this.hitCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VoiceProductAliasesCompanion.insert({
+    required String id,
+    required String aliasText,
+    required String normalizedAlias,
+    this.productId = const Value.absent(),
+    required String canonicalProductName,
+    this.hitCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       aliasText = Value(aliasText),
+       normalizedAlias = Value(normalizedAlias),
+       canonicalProductName = Value(canonicalProductName);
+  static Insertable<VoiceProductAliasRow> custom({
+    Expression<String>? id,
+    Expression<String>? aliasText,
+    Expression<String>? normalizedAlias,
+    Expression<String>? productId,
+    Expression<String>? canonicalProductName,
+    Expression<int>? hitCount,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (aliasText != null) 'alias_text': aliasText,
+      if (normalizedAlias != null) 'normalized_alias': normalizedAlias,
+      if (productId != null) 'product_id': productId,
+      if (canonicalProductName != null)
+        'canonical_product_name': canonicalProductName,
+      if (hitCount != null) 'hit_count': hitCount,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VoiceProductAliasesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? aliasText,
+    Value<String>? normalizedAlias,
+    Value<String?>? productId,
+    Value<String>? canonicalProductName,
+    Value<int>? hitCount,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return VoiceProductAliasesCompanion(
+      id: id ?? this.id,
+      aliasText: aliasText ?? this.aliasText,
+      normalizedAlias: normalizedAlias ?? this.normalizedAlias,
+      productId: productId ?? this.productId,
+      canonicalProductName: canonicalProductName ?? this.canonicalProductName,
+      hitCount: hitCount ?? this.hitCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (aliasText.present) {
+      map['alias_text'] = Variable<String>(aliasText.value);
+    }
+    if (normalizedAlias.present) {
+      map['normalized_alias'] = Variable<String>(normalizedAlias.value);
+    }
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (canonicalProductName.present) {
+      map['canonical_product_name'] = Variable<String>(
+        canonicalProductName.value,
+      );
+    }
+    if (hitCount.present) {
+      map['hit_count'] = Variable<int>(hitCount.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VoiceProductAliasesCompanion(')
+          ..write('id: $id, ')
+          ..write('aliasText: $aliasText, ')
+          ..write('normalizedAlias: $normalizedAlias, ')
+          ..write('productId: $productId, ')
+          ..write('canonicalProductName: $canonicalProductName, ')
+          ..write('hitCount: $hitCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $VoiceUnitAliasesTable extends VoiceUnitAliases
+    with TableInfo<$VoiceUnitAliasesTable, VoiceUnitAliasRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VoiceUnitAliasesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _aliasTextMeta = const VerificationMeta(
+    'aliasText',
+  );
+  @override
+  late final GeneratedColumn<String> aliasText = GeneratedColumn<String>(
+    'alias_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _normalizedAliasMeta = const VerificationMeta(
+    'normalizedAlias',
+  );
+  @override
+  late final GeneratedColumn<String> normalizedAlias = GeneratedColumn<String>(
+    'normalized_alias',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _canonicalUnitMeta = const VerificationMeta(
+    'canonicalUnit',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalUnit = GeneratedColumn<String>(
+    'canonical_unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hitCountMeta = const VerificationMeta(
+    'hitCount',
+  );
+  @override
+  late final GeneratedColumn<int> hitCount = GeneratedColumn<int>(
+    'hit_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    aliasText,
+    normalizedAlias,
+    canonicalUnit,
+    hitCount,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'voice_unit_aliases';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<VoiceUnitAliasRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('alias_text')) {
+      context.handle(
+        _aliasTextMeta,
+        aliasText.isAcceptableOrUnknown(data['alias_text']!, _aliasTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_aliasTextMeta);
+    }
+    if (data.containsKey('normalized_alias')) {
+      context.handle(
+        _normalizedAliasMeta,
+        normalizedAlias.isAcceptableOrUnknown(
+          data['normalized_alias']!,
+          _normalizedAliasMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_normalizedAliasMeta);
+    }
+    if (data.containsKey('canonical_unit')) {
+      context.handle(
+        _canonicalUnitMeta,
+        canonicalUnit.isAcceptableOrUnknown(
+          data['canonical_unit']!,
+          _canonicalUnitMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_canonicalUnitMeta);
+    }
+    if (data.containsKey('hit_count')) {
+      context.handle(
+        _hitCountMeta,
+        hitCount.isAcceptableOrUnknown(data['hit_count']!, _hitCountMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {normalizedAlias},
+  ];
+  @override
+  VoiceUnitAliasRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VoiceUnitAliasRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      aliasText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}alias_text'],
+      )!,
+      normalizedAlias: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}normalized_alias'],
+      )!,
+      canonicalUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_unit'],
+      )!,
+      hitCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}hit_count'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $VoiceUnitAliasesTable createAlias(String alias) {
+    return $VoiceUnitAliasesTable(attachedDatabase, alias);
+  }
+}
+
+class VoiceUnitAliasRow extends DataClass
+    implements Insertable<VoiceUnitAliasRow> {
+  final String id;
+  final String aliasText;
+  final String normalizedAlias;
+  final String canonicalUnit;
+  final int hitCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const VoiceUnitAliasRow({
+    required this.id,
+    required this.aliasText,
+    required this.normalizedAlias,
+    required this.canonicalUnit,
+    required this.hitCount,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['alias_text'] = Variable<String>(aliasText);
+    map['normalized_alias'] = Variable<String>(normalizedAlias);
+    map['canonical_unit'] = Variable<String>(canonicalUnit);
+    map['hit_count'] = Variable<int>(hitCount);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  VoiceUnitAliasesCompanion toCompanion(bool nullToAbsent) {
+    return VoiceUnitAliasesCompanion(
+      id: Value(id),
+      aliasText: Value(aliasText),
+      normalizedAlias: Value(normalizedAlias),
+      canonicalUnit: Value(canonicalUnit),
+      hitCount: Value(hitCount),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory VoiceUnitAliasRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VoiceUnitAliasRow(
+      id: serializer.fromJson<String>(json['id']),
+      aliasText: serializer.fromJson<String>(json['aliasText']),
+      normalizedAlias: serializer.fromJson<String>(json['normalizedAlias']),
+      canonicalUnit: serializer.fromJson<String>(json['canonicalUnit']),
+      hitCount: serializer.fromJson<int>(json['hitCount']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'aliasText': serializer.toJson<String>(aliasText),
+      'normalizedAlias': serializer.toJson<String>(normalizedAlias),
+      'canonicalUnit': serializer.toJson<String>(canonicalUnit),
+      'hitCount': serializer.toJson<int>(hitCount),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  VoiceUnitAliasRow copyWith({
+    String? id,
+    String? aliasText,
+    String? normalizedAlias,
+    String? canonicalUnit,
+    int? hitCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => VoiceUnitAliasRow(
+    id: id ?? this.id,
+    aliasText: aliasText ?? this.aliasText,
+    normalizedAlias: normalizedAlias ?? this.normalizedAlias,
+    canonicalUnit: canonicalUnit ?? this.canonicalUnit,
+    hitCount: hitCount ?? this.hitCount,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  VoiceUnitAliasRow copyWithCompanion(VoiceUnitAliasesCompanion data) {
+    return VoiceUnitAliasRow(
+      id: data.id.present ? data.id.value : this.id,
+      aliasText: data.aliasText.present ? data.aliasText.value : this.aliasText,
+      normalizedAlias: data.normalizedAlias.present
+          ? data.normalizedAlias.value
+          : this.normalizedAlias,
+      canonicalUnit: data.canonicalUnit.present
+          ? data.canonicalUnit.value
+          : this.canonicalUnit,
+      hitCount: data.hitCount.present ? data.hitCount.value : this.hitCount,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VoiceUnitAliasRow(')
+          ..write('id: $id, ')
+          ..write('aliasText: $aliasText, ')
+          ..write('normalizedAlias: $normalizedAlias, ')
+          ..write('canonicalUnit: $canonicalUnit, ')
+          ..write('hitCount: $hitCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    aliasText,
+    normalizedAlias,
+    canonicalUnit,
+    hitCount,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VoiceUnitAliasRow &&
+          other.id == this.id &&
+          other.aliasText == this.aliasText &&
+          other.normalizedAlias == this.normalizedAlias &&
+          other.canonicalUnit == this.canonicalUnit &&
+          other.hitCount == this.hitCount &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class VoiceUnitAliasesCompanion extends UpdateCompanion<VoiceUnitAliasRow> {
+  final Value<String> id;
+  final Value<String> aliasText;
+  final Value<String> normalizedAlias;
+  final Value<String> canonicalUnit;
+  final Value<int> hitCount;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const VoiceUnitAliasesCompanion({
+    this.id = const Value.absent(),
+    this.aliasText = const Value.absent(),
+    this.normalizedAlias = const Value.absent(),
+    this.canonicalUnit = const Value.absent(),
+    this.hitCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VoiceUnitAliasesCompanion.insert({
+    required String id,
+    required String aliasText,
+    required String normalizedAlias,
+    required String canonicalUnit,
+    this.hitCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       aliasText = Value(aliasText),
+       normalizedAlias = Value(normalizedAlias),
+       canonicalUnit = Value(canonicalUnit);
+  static Insertable<VoiceUnitAliasRow> custom({
+    Expression<String>? id,
+    Expression<String>? aliasText,
+    Expression<String>? normalizedAlias,
+    Expression<String>? canonicalUnit,
+    Expression<int>? hitCount,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (aliasText != null) 'alias_text': aliasText,
+      if (normalizedAlias != null) 'normalized_alias': normalizedAlias,
+      if (canonicalUnit != null) 'canonical_unit': canonicalUnit,
+      if (hitCount != null) 'hit_count': hitCount,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VoiceUnitAliasesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? aliasText,
+    Value<String>? normalizedAlias,
+    Value<String>? canonicalUnit,
+    Value<int>? hitCount,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return VoiceUnitAliasesCompanion(
+      id: id ?? this.id,
+      aliasText: aliasText ?? this.aliasText,
+      normalizedAlias: normalizedAlias ?? this.normalizedAlias,
+      canonicalUnit: canonicalUnit ?? this.canonicalUnit,
+      hitCount: hitCount ?? this.hitCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (aliasText.present) {
+      map['alias_text'] = Variable<String>(aliasText.value);
+    }
+    if (normalizedAlias.present) {
+      map['normalized_alias'] = Variable<String>(normalizedAlias.value);
+    }
+    if (canonicalUnit.present) {
+      map['canonical_unit'] = Variable<String>(canonicalUnit.value);
+    }
+    if (hitCount.present) {
+      map['hit_count'] = Variable<int>(hitCount.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VoiceUnitAliasesCompanion(')
+          ..write('id: $id, ')
+          ..write('aliasText: $aliasText, ')
+          ..write('normalizedAlias: $normalizedAlias, ')
+          ..write('canonicalUnit: $canonicalUnit, ')
+          ..write('hitCount: $hitCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $VoiceCorrectionsTable extends VoiceCorrections
+    with TableInfo<$VoiceCorrectionsTable, VoiceCorrectionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VoiceCorrectionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rawTextMeta = const VerificationMeta(
+    'rawText',
+  );
+  @override
+  late final GeneratedColumn<String> rawText = GeneratedColumn<String>(
+    'raw_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parsedProductNameMeta = const VerificationMeta(
+    'parsedProductName',
+  );
+  @override
+  late final GeneratedColumn<String> parsedProductName =
+      GeneratedColumn<String>(
+        'parsed_product_name',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _correctedProductNameMeta =
+      const VerificationMeta('correctedProductName');
+  @override
+  late final GeneratedColumn<String> correctedProductName =
+      GeneratedColumn<String>(
+        'corrected_product_name',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _parsedUnitMeta = const VerificationMeta(
+    'parsedUnit',
+  );
+  @override
+  late final GeneratedColumn<String> parsedUnit = GeneratedColumn<String>(
+    'parsed_unit',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _correctedUnitMeta = const VerificationMeta(
+    'correctedUnit',
+  );
+  @override
+  late final GeneratedColumn<String> correctedUnit = GeneratedColumn<String>(
+    'corrected_unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parsedQuantityMeta = const VerificationMeta(
+    'parsedQuantity',
+  );
+  @override
+  late final GeneratedColumn<double> parsedQuantity = GeneratedColumn<double>(
+    'parsed_quantity',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _correctedQuantityMeta = const VerificationMeta(
+    'correctedQuantity',
+  );
+  @override
+  late final GeneratedColumn<double> correctedQuantity =
+      GeneratedColumn<double>(
+        'corrected_quantity',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    rawText,
+    parsedProductName,
+    correctedProductName,
+    parsedUnit,
+    correctedUnit,
+    parsedQuantity,
+    correctedQuantity,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'voice_corrections';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<VoiceCorrectionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('raw_text')) {
+      context.handle(
+        _rawTextMeta,
+        rawText.isAcceptableOrUnknown(data['raw_text']!, _rawTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rawTextMeta);
+    }
+    if (data.containsKey('parsed_product_name')) {
+      context.handle(
+        _parsedProductNameMeta,
+        parsedProductName.isAcceptableOrUnknown(
+          data['parsed_product_name']!,
+          _parsedProductNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('corrected_product_name')) {
+      context.handle(
+        _correctedProductNameMeta,
+        correctedProductName.isAcceptableOrUnknown(
+          data['corrected_product_name']!,
+          _correctedProductNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_correctedProductNameMeta);
+    }
+    if (data.containsKey('parsed_unit')) {
+      context.handle(
+        _parsedUnitMeta,
+        parsedUnit.isAcceptableOrUnknown(data['parsed_unit']!, _parsedUnitMeta),
+      );
+    }
+    if (data.containsKey('corrected_unit')) {
+      context.handle(
+        _correctedUnitMeta,
+        correctedUnit.isAcceptableOrUnknown(
+          data['corrected_unit']!,
+          _correctedUnitMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_correctedUnitMeta);
+    }
+    if (data.containsKey('parsed_quantity')) {
+      context.handle(
+        _parsedQuantityMeta,
+        parsedQuantity.isAcceptableOrUnknown(
+          data['parsed_quantity']!,
+          _parsedQuantityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('corrected_quantity')) {
+      context.handle(
+        _correctedQuantityMeta,
+        correctedQuantity.isAcceptableOrUnknown(
+          data['corrected_quantity']!,
+          _correctedQuantityMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_correctedQuantityMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  VoiceCorrectionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VoiceCorrectionRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      rawText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raw_text'],
+      )!,
+      parsedProductName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parsed_product_name'],
+      ),
+      correctedProductName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}corrected_product_name'],
+      )!,
+      parsedUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parsed_unit'],
+      ),
+      correctedUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}corrected_unit'],
+      )!,
+      parsedQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}parsed_quantity'],
+      ),
+      correctedQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}corrected_quantity'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $VoiceCorrectionsTable createAlias(String alias) {
+    return $VoiceCorrectionsTable(attachedDatabase, alias);
+  }
+}
+
+class VoiceCorrectionRow extends DataClass
+    implements Insertable<VoiceCorrectionRow> {
+  final String id;
+  final String rawText;
+  final String? parsedProductName;
+  final String correctedProductName;
+  final String? parsedUnit;
+  final String correctedUnit;
+  final double? parsedQuantity;
+  final double correctedQuantity;
+  final DateTime createdAt;
+  const VoiceCorrectionRow({
+    required this.id,
+    required this.rawText,
+    this.parsedProductName,
+    required this.correctedProductName,
+    this.parsedUnit,
+    required this.correctedUnit,
+    this.parsedQuantity,
+    required this.correctedQuantity,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['raw_text'] = Variable<String>(rawText);
+    if (!nullToAbsent || parsedProductName != null) {
+      map['parsed_product_name'] = Variable<String>(parsedProductName);
+    }
+    map['corrected_product_name'] = Variable<String>(correctedProductName);
+    if (!nullToAbsent || parsedUnit != null) {
+      map['parsed_unit'] = Variable<String>(parsedUnit);
+    }
+    map['corrected_unit'] = Variable<String>(correctedUnit);
+    if (!nullToAbsent || parsedQuantity != null) {
+      map['parsed_quantity'] = Variable<double>(parsedQuantity);
+    }
+    map['corrected_quantity'] = Variable<double>(correctedQuantity);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  VoiceCorrectionsCompanion toCompanion(bool nullToAbsent) {
+    return VoiceCorrectionsCompanion(
+      id: Value(id),
+      rawText: Value(rawText),
+      parsedProductName: parsedProductName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parsedProductName),
+      correctedProductName: Value(correctedProductName),
+      parsedUnit: parsedUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parsedUnit),
+      correctedUnit: Value(correctedUnit),
+      parsedQuantity: parsedQuantity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parsedQuantity),
+      correctedQuantity: Value(correctedQuantity),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory VoiceCorrectionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VoiceCorrectionRow(
+      id: serializer.fromJson<String>(json['id']),
+      rawText: serializer.fromJson<String>(json['rawText']),
+      parsedProductName: serializer.fromJson<String?>(
+        json['parsedProductName'],
+      ),
+      correctedProductName: serializer.fromJson<String>(
+        json['correctedProductName'],
+      ),
+      parsedUnit: serializer.fromJson<String?>(json['parsedUnit']),
+      correctedUnit: serializer.fromJson<String>(json['correctedUnit']),
+      parsedQuantity: serializer.fromJson<double?>(json['parsedQuantity']),
+      correctedQuantity: serializer.fromJson<double>(json['correctedQuantity']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'rawText': serializer.toJson<String>(rawText),
+      'parsedProductName': serializer.toJson<String?>(parsedProductName),
+      'correctedProductName': serializer.toJson<String>(correctedProductName),
+      'parsedUnit': serializer.toJson<String?>(parsedUnit),
+      'correctedUnit': serializer.toJson<String>(correctedUnit),
+      'parsedQuantity': serializer.toJson<double?>(parsedQuantity),
+      'correctedQuantity': serializer.toJson<double>(correctedQuantity),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  VoiceCorrectionRow copyWith({
+    String? id,
+    String? rawText,
+    Value<String?> parsedProductName = const Value.absent(),
+    String? correctedProductName,
+    Value<String?> parsedUnit = const Value.absent(),
+    String? correctedUnit,
+    Value<double?> parsedQuantity = const Value.absent(),
+    double? correctedQuantity,
+    DateTime? createdAt,
+  }) => VoiceCorrectionRow(
+    id: id ?? this.id,
+    rawText: rawText ?? this.rawText,
+    parsedProductName: parsedProductName.present
+        ? parsedProductName.value
+        : this.parsedProductName,
+    correctedProductName: correctedProductName ?? this.correctedProductName,
+    parsedUnit: parsedUnit.present ? parsedUnit.value : this.parsedUnit,
+    correctedUnit: correctedUnit ?? this.correctedUnit,
+    parsedQuantity: parsedQuantity.present
+        ? parsedQuantity.value
+        : this.parsedQuantity,
+    correctedQuantity: correctedQuantity ?? this.correctedQuantity,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  VoiceCorrectionRow copyWithCompanion(VoiceCorrectionsCompanion data) {
+    return VoiceCorrectionRow(
+      id: data.id.present ? data.id.value : this.id,
+      rawText: data.rawText.present ? data.rawText.value : this.rawText,
+      parsedProductName: data.parsedProductName.present
+          ? data.parsedProductName.value
+          : this.parsedProductName,
+      correctedProductName: data.correctedProductName.present
+          ? data.correctedProductName.value
+          : this.correctedProductName,
+      parsedUnit: data.parsedUnit.present
+          ? data.parsedUnit.value
+          : this.parsedUnit,
+      correctedUnit: data.correctedUnit.present
+          ? data.correctedUnit.value
+          : this.correctedUnit,
+      parsedQuantity: data.parsedQuantity.present
+          ? data.parsedQuantity.value
+          : this.parsedQuantity,
+      correctedQuantity: data.correctedQuantity.present
+          ? data.correctedQuantity.value
+          : this.correctedQuantity,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VoiceCorrectionRow(')
+          ..write('id: $id, ')
+          ..write('rawText: $rawText, ')
+          ..write('parsedProductName: $parsedProductName, ')
+          ..write('correctedProductName: $correctedProductName, ')
+          ..write('parsedUnit: $parsedUnit, ')
+          ..write('correctedUnit: $correctedUnit, ')
+          ..write('parsedQuantity: $parsedQuantity, ')
+          ..write('correctedQuantity: $correctedQuantity, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    rawText,
+    parsedProductName,
+    correctedProductName,
+    parsedUnit,
+    correctedUnit,
+    parsedQuantity,
+    correctedQuantity,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VoiceCorrectionRow &&
+          other.id == this.id &&
+          other.rawText == this.rawText &&
+          other.parsedProductName == this.parsedProductName &&
+          other.correctedProductName == this.correctedProductName &&
+          other.parsedUnit == this.parsedUnit &&
+          other.correctedUnit == this.correctedUnit &&
+          other.parsedQuantity == this.parsedQuantity &&
+          other.correctedQuantity == this.correctedQuantity &&
+          other.createdAt == this.createdAt);
+}
+
+class VoiceCorrectionsCompanion extends UpdateCompanion<VoiceCorrectionRow> {
+  final Value<String> id;
+  final Value<String> rawText;
+  final Value<String?> parsedProductName;
+  final Value<String> correctedProductName;
+  final Value<String?> parsedUnit;
+  final Value<String> correctedUnit;
+  final Value<double?> parsedQuantity;
+  final Value<double> correctedQuantity;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const VoiceCorrectionsCompanion({
+    this.id = const Value.absent(),
+    this.rawText = const Value.absent(),
+    this.parsedProductName = const Value.absent(),
+    this.correctedProductName = const Value.absent(),
+    this.parsedUnit = const Value.absent(),
+    this.correctedUnit = const Value.absent(),
+    this.parsedQuantity = const Value.absent(),
+    this.correctedQuantity = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VoiceCorrectionsCompanion.insert({
+    required String id,
+    required String rawText,
+    this.parsedProductName = const Value.absent(),
+    required String correctedProductName,
+    this.parsedUnit = const Value.absent(),
+    required String correctedUnit,
+    this.parsedQuantity = const Value.absent(),
+    required double correctedQuantity,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       rawText = Value(rawText),
+       correctedProductName = Value(correctedProductName),
+       correctedUnit = Value(correctedUnit),
+       correctedQuantity = Value(correctedQuantity);
+  static Insertable<VoiceCorrectionRow> custom({
+    Expression<String>? id,
+    Expression<String>? rawText,
+    Expression<String>? parsedProductName,
+    Expression<String>? correctedProductName,
+    Expression<String>? parsedUnit,
+    Expression<String>? correctedUnit,
+    Expression<double>? parsedQuantity,
+    Expression<double>? correctedQuantity,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (rawText != null) 'raw_text': rawText,
+      if (parsedProductName != null) 'parsed_product_name': parsedProductName,
+      if (correctedProductName != null)
+        'corrected_product_name': correctedProductName,
+      if (parsedUnit != null) 'parsed_unit': parsedUnit,
+      if (correctedUnit != null) 'corrected_unit': correctedUnit,
+      if (parsedQuantity != null) 'parsed_quantity': parsedQuantity,
+      if (correctedQuantity != null) 'corrected_quantity': correctedQuantity,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VoiceCorrectionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? rawText,
+    Value<String?>? parsedProductName,
+    Value<String>? correctedProductName,
+    Value<String?>? parsedUnit,
+    Value<String>? correctedUnit,
+    Value<double?>? parsedQuantity,
+    Value<double>? correctedQuantity,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return VoiceCorrectionsCompanion(
+      id: id ?? this.id,
+      rawText: rawText ?? this.rawText,
+      parsedProductName: parsedProductName ?? this.parsedProductName,
+      correctedProductName: correctedProductName ?? this.correctedProductName,
+      parsedUnit: parsedUnit ?? this.parsedUnit,
+      correctedUnit: correctedUnit ?? this.correctedUnit,
+      parsedQuantity: parsedQuantity ?? this.parsedQuantity,
+      correctedQuantity: correctedQuantity ?? this.correctedQuantity,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (rawText.present) {
+      map['raw_text'] = Variable<String>(rawText.value);
+    }
+    if (parsedProductName.present) {
+      map['parsed_product_name'] = Variable<String>(parsedProductName.value);
+    }
+    if (correctedProductName.present) {
+      map['corrected_product_name'] = Variable<String>(
+        correctedProductName.value,
+      );
+    }
+    if (parsedUnit.present) {
+      map['parsed_unit'] = Variable<String>(parsedUnit.value);
+    }
+    if (correctedUnit.present) {
+      map['corrected_unit'] = Variable<String>(correctedUnit.value);
+    }
+    if (parsedQuantity.present) {
+      map['parsed_quantity'] = Variable<double>(parsedQuantity.value);
+    }
+    if (correctedQuantity.present) {
+      map['corrected_quantity'] = Variable<double>(correctedQuantity.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VoiceCorrectionsCompanion(')
+          ..write('id: $id, ')
+          ..write('rawText: $rawText, ')
+          ..write('parsedProductName: $parsedProductName, ')
+          ..write('correctedProductName: $correctedProductName, ')
+          ..write('parsedUnit: $parsedUnit, ')
+          ..write('correctedUnit: $correctedUnit, ')
+          ..write('parsedQuantity: $parsedQuantity, ')
+          ..write('correctedQuantity: $correctedQuantity, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $VoiceActionAuditsTable extends VoiceActionAudits
+    with TableInfo<$VoiceActionAuditsTable, VoiceActionAuditRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VoiceActionAuditsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actionIdMeta = const VerificationMeta(
+    'actionId',
+  );
+  @override
+  late final GeneratedColumn<String> actionId = GeneratedColumn<String>(
+    'action_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actionTypeMeta = const VerificationMeta(
+    'actionType',
+  );
+  @override
+  late final GeneratedColumn<String> actionType = GeneratedColumn<String>(
+    'action_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetEntityTypeMeta = const VerificationMeta(
+    'targetEntityType',
+  );
+  @override
+  late final GeneratedColumn<String> targetEntityType = GeneratedColumn<String>(
+    'target_entity_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _targetEntityIdMeta = const VerificationMeta(
+    'targetEntityId',
+  );
+  @override
+  late final GeneratedColumn<String> targetEntityId = GeneratedColumn<String>(
+    'target_entity_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _beforeSummaryMeta = const VerificationMeta(
+    'beforeSummary',
+  );
+  @override
+  late final GeneratedColumn<String> beforeSummary = GeneratedColumn<String>(
+    'before_summary',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _afterSummaryMeta = const VerificationMeta(
+    'afterSummary',
+  );
+  @override
+  late final GeneratedColumn<String> afterSummary = GeneratedColumn<String>(
+    'after_summary',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _confirmedMeta = const VerificationMeta(
+    'confirmed',
+  );
+  @override
+  late final GeneratedColumn<bool> confirmed = GeneratedColumn<bool>(
+    'confirmed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("confirmed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _authRequiredMeta = const VerificationMeta(
+    'authRequired',
+  );
+  @override
+  late final GeneratedColumn<bool> authRequired = GeneratedColumn<bool>(
+    'auth_required',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auth_required" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _authSucceededMeta = const VerificationMeta(
+    'authSucceeded',
+  );
+  @override
+  late final GeneratedColumn<bool> authSucceeded = GeneratedColumn<bool>(
+    'auth_succeeded',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auth_succeeded" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _errorCodeMeta = const VerificationMeta(
+    'errorCode',
+  );
+  @override
+  late final GeneratedColumn<String> errorCode = GeneratedColumn<String>(
+    'error_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _undoStatusMeta = const VerificationMeta(
+    'undoStatus',
+  );
+  @override
+  late final GeneratedColumn<String> undoStatus = GeneratedColumn<String>(
+    'undo_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('notAvailable'),
+  );
+  static const VerificationMeta _commandFingerprintMeta =
+      const VerificationMeta('commandFingerprint');
+  @override
+  late final GeneratedColumn<String> commandFingerprint =
+      GeneratedColumn<String>(
+        'command_fingerprint',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    actionId,
+    actionType,
+    source,
+    status,
+    targetEntityType,
+    targetEntityId,
+    beforeSummary,
+    afterSummary,
+    confirmed,
+    authRequired,
+    authSucceeded,
+    errorCode,
+    undoStatus,
+    commandFingerprint,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'voice_action_audits';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<VoiceActionAuditRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('action_id')) {
+      context.handle(
+        _actionIdMeta,
+        actionId.isAcceptableOrUnknown(data['action_id']!, _actionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionIdMeta);
+    }
+    if (data.containsKey('action_type')) {
+      context.handle(
+        _actionTypeMeta,
+        actionType.isAcceptableOrUnknown(data['action_type']!, _actionTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionTypeMeta);
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('target_entity_type')) {
+      context.handle(
+        _targetEntityTypeMeta,
+        targetEntityType.isAcceptableOrUnknown(
+          data['target_entity_type']!,
+          _targetEntityTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('target_entity_id')) {
+      context.handle(
+        _targetEntityIdMeta,
+        targetEntityId.isAcceptableOrUnknown(
+          data['target_entity_id']!,
+          _targetEntityIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('before_summary')) {
+      context.handle(
+        _beforeSummaryMeta,
+        beforeSummary.isAcceptableOrUnknown(
+          data['before_summary']!,
+          _beforeSummaryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('after_summary')) {
+      context.handle(
+        _afterSummaryMeta,
+        afterSummary.isAcceptableOrUnknown(
+          data['after_summary']!,
+          _afterSummaryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('confirmed')) {
+      context.handle(
+        _confirmedMeta,
+        confirmed.isAcceptableOrUnknown(data['confirmed']!, _confirmedMeta),
+      );
+    }
+    if (data.containsKey('auth_required')) {
+      context.handle(
+        _authRequiredMeta,
+        authRequired.isAcceptableOrUnknown(
+          data['auth_required']!,
+          _authRequiredMeta,
+        ),
+      );
+    }
+    if (data.containsKey('auth_succeeded')) {
+      context.handle(
+        _authSucceededMeta,
+        authSucceeded.isAcceptableOrUnknown(
+          data['auth_succeeded']!,
+          _authSucceededMeta,
+        ),
+      );
+    }
+    if (data.containsKey('error_code')) {
+      context.handle(
+        _errorCodeMeta,
+        errorCode.isAcceptableOrUnknown(data['error_code']!, _errorCodeMeta),
+      );
+    }
+    if (data.containsKey('undo_status')) {
+      context.handle(
+        _undoStatusMeta,
+        undoStatus.isAcceptableOrUnknown(data['undo_status']!, _undoStatusMeta),
+      );
+    }
+    if (data.containsKey('command_fingerprint')) {
+      context.handle(
+        _commandFingerprintMeta,
+        commandFingerprint.isAcceptableOrUnknown(
+          data['command_fingerprint']!,
+          _commandFingerprintMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_commandFingerprintMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {actionId, status},
+  ];
+  @override
+  VoiceActionAuditRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VoiceActionAuditRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      actionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action_id'],
+      )!,
+      actionType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action_type'],
+      )!,
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      targetEntityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_entity_type'],
+      ),
+      targetEntityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_entity_id'],
+      ),
+      beforeSummary: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}before_summary'],
+      )!,
+      afterSummary: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}after_summary'],
+      )!,
+      confirmed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}confirmed'],
+      )!,
+      authRequired: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auth_required'],
+      )!,
+      authSucceeded: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auth_succeeded'],
+      )!,
+      errorCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_code'],
+      ),
+      undoStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}undo_status'],
+      )!,
+      commandFingerprint: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}command_fingerprint'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $VoiceActionAuditsTable createAlias(String alias) {
+    return $VoiceActionAuditsTable(attachedDatabase, alias);
+  }
+}
+
+class VoiceActionAuditRow extends DataClass
+    implements Insertable<VoiceActionAuditRow> {
+  final String id;
+  final String actionId;
+  final String actionType;
+  final String source;
+  final String status;
+  final String? targetEntityType;
+  final String? targetEntityId;
+  final String beforeSummary;
+  final String afterSummary;
+  final bool confirmed;
+  final bool authRequired;
+  final bool authSucceeded;
+  final String? errorCode;
+  final String undoStatus;
+  final String commandFingerprint;
+  final DateTime createdAt;
+  const VoiceActionAuditRow({
+    required this.id,
+    required this.actionId,
+    required this.actionType,
+    required this.source,
+    required this.status,
+    this.targetEntityType,
+    this.targetEntityId,
+    required this.beforeSummary,
+    required this.afterSummary,
+    required this.confirmed,
+    required this.authRequired,
+    required this.authSucceeded,
+    this.errorCode,
+    required this.undoStatus,
+    required this.commandFingerprint,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['action_id'] = Variable<String>(actionId);
+    map['action_type'] = Variable<String>(actionType);
+    map['source'] = Variable<String>(source);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || targetEntityType != null) {
+      map['target_entity_type'] = Variable<String>(targetEntityType);
+    }
+    if (!nullToAbsent || targetEntityId != null) {
+      map['target_entity_id'] = Variable<String>(targetEntityId);
+    }
+    map['before_summary'] = Variable<String>(beforeSummary);
+    map['after_summary'] = Variable<String>(afterSummary);
+    map['confirmed'] = Variable<bool>(confirmed);
+    map['auth_required'] = Variable<bool>(authRequired);
+    map['auth_succeeded'] = Variable<bool>(authSucceeded);
+    if (!nullToAbsent || errorCode != null) {
+      map['error_code'] = Variable<String>(errorCode);
+    }
+    map['undo_status'] = Variable<String>(undoStatus);
+    map['command_fingerprint'] = Variable<String>(commandFingerprint);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  VoiceActionAuditsCompanion toCompanion(bool nullToAbsent) {
+    return VoiceActionAuditsCompanion(
+      id: Value(id),
+      actionId: Value(actionId),
+      actionType: Value(actionType),
+      source: Value(source),
+      status: Value(status),
+      targetEntityType: targetEntityType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetEntityType),
+      targetEntityId: targetEntityId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetEntityId),
+      beforeSummary: Value(beforeSummary),
+      afterSummary: Value(afterSummary),
+      confirmed: Value(confirmed),
+      authRequired: Value(authRequired),
+      authSucceeded: Value(authSucceeded),
+      errorCode: errorCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorCode),
+      undoStatus: Value(undoStatus),
+      commandFingerprint: Value(commandFingerprint),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory VoiceActionAuditRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VoiceActionAuditRow(
+      id: serializer.fromJson<String>(json['id']),
+      actionId: serializer.fromJson<String>(json['actionId']),
+      actionType: serializer.fromJson<String>(json['actionType']),
+      source: serializer.fromJson<String>(json['source']),
+      status: serializer.fromJson<String>(json['status']),
+      targetEntityType: serializer.fromJson<String?>(json['targetEntityType']),
+      targetEntityId: serializer.fromJson<String?>(json['targetEntityId']),
+      beforeSummary: serializer.fromJson<String>(json['beforeSummary']),
+      afterSummary: serializer.fromJson<String>(json['afterSummary']),
+      confirmed: serializer.fromJson<bool>(json['confirmed']),
+      authRequired: serializer.fromJson<bool>(json['authRequired']),
+      authSucceeded: serializer.fromJson<bool>(json['authSucceeded']),
+      errorCode: serializer.fromJson<String?>(json['errorCode']),
+      undoStatus: serializer.fromJson<String>(json['undoStatus']),
+      commandFingerprint: serializer.fromJson<String>(
+        json['commandFingerprint'],
+      ),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'actionId': serializer.toJson<String>(actionId),
+      'actionType': serializer.toJson<String>(actionType),
+      'source': serializer.toJson<String>(source),
+      'status': serializer.toJson<String>(status),
+      'targetEntityType': serializer.toJson<String?>(targetEntityType),
+      'targetEntityId': serializer.toJson<String?>(targetEntityId),
+      'beforeSummary': serializer.toJson<String>(beforeSummary),
+      'afterSummary': serializer.toJson<String>(afterSummary),
+      'confirmed': serializer.toJson<bool>(confirmed),
+      'authRequired': serializer.toJson<bool>(authRequired),
+      'authSucceeded': serializer.toJson<bool>(authSucceeded),
+      'errorCode': serializer.toJson<String?>(errorCode),
+      'undoStatus': serializer.toJson<String>(undoStatus),
+      'commandFingerprint': serializer.toJson<String>(commandFingerprint),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  VoiceActionAuditRow copyWith({
+    String? id,
+    String? actionId,
+    String? actionType,
+    String? source,
+    String? status,
+    Value<String?> targetEntityType = const Value.absent(),
+    Value<String?> targetEntityId = const Value.absent(),
+    String? beforeSummary,
+    String? afterSummary,
+    bool? confirmed,
+    bool? authRequired,
+    bool? authSucceeded,
+    Value<String?> errorCode = const Value.absent(),
+    String? undoStatus,
+    String? commandFingerprint,
+    DateTime? createdAt,
+  }) => VoiceActionAuditRow(
+    id: id ?? this.id,
+    actionId: actionId ?? this.actionId,
+    actionType: actionType ?? this.actionType,
+    source: source ?? this.source,
+    status: status ?? this.status,
+    targetEntityType: targetEntityType.present
+        ? targetEntityType.value
+        : this.targetEntityType,
+    targetEntityId: targetEntityId.present
+        ? targetEntityId.value
+        : this.targetEntityId,
+    beforeSummary: beforeSummary ?? this.beforeSummary,
+    afterSummary: afterSummary ?? this.afterSummary,
+    confirmed: confirmed ?? this.confirmed,
+    authRequired: authRequired ?? this.authRequired,
+    authSucceeded: authSucceeded ?? this.authSucceeded,
+    errorCode: errorCode.present ? errorCode.value : this.errorCode,
+    undoStatus: undoStatus ?? this.undoStatus,
+    commandFingerprint: commandFingerprint ?? this.commandFingerprint,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  VoiceActionAuditRow copyWithCompanion(VoiceActionAuditsCompanion data) {
+    return VoiceActionAuditRow(
+      id: data.id.present ? data.id.value : this.id,
+      actionId: data.actionId.present ? data.actionId.value : this.actionId,
+      actionType: data.actionType.present
+          ? data.actionType.value
+          : this.actionType,
+      source: data.source.present ? data.source.value : this.source,
+      status: data.status.present ? data.status.value : this.status,
+      targetEntityType: data.targetEntityType.present
+          ? data.targetEntityType.value
+          : this.targetEntityType,
+      targetEntityId: data.targetEntityId.present
+          ? data.targetEntityId.value
+          : this.targetEntityId,
+      beforeSummary: data.beforeSummary.present
+          ? data.beforeSummary.value
+          : this.beforeSummary,
+      afterSummary: data.afterSummary.present
+          ? data.afterSummary.value
+          : this.afterSummary,
+      confirmed: data.confirmed.present ? data.confirmed.value : this.confirmed,
+      authRequired: data.authRequired.present
+          ? data.authRequired.value
+          : this.authRequired,
+      authSucceeded: data.authSucceeded.present
+          ? data.authSucceeded.value
+          : this.authSucceeded,
+      errorCode: data.errorCode.present ? data.errorCode.value : this.errorCode,
+      undoStatus: data.undoStatus.present
+          ? data.undoStatus.value
+          : this.undoStatus,
+      commandFingerprint: data.commandFingerprint.present
+          ? data.commandFingerprint.value
+          : this.commandFingerprint,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VoiceActionAuditRow(')
+          ..write('id: $id, ')
+          ..write('actionId: $actionId, ')
+          ..write('actionType: $actionType, ')
+          ..write('source: $source, ')
+          ..write('status: $status, ')
+          ..write('targetEntityType: $targetEntityType, ')
+          ..write('targetEntityId: $targetEntityId, ')
+          ..write('beforeSummary: $beforeSummary, ')
+          ..write('afterSummary: $afterSummary, ')
+          ..write('confirmed: $confirmed, ')
+          ..write('authRequired: $authRequired, ')
+          ..write('authSucceeded: $authSucceeded, ')
+          ..write('errorCode: $errorCode, ')
+          ..write('undoStatus: $undoStatus, ')
+          ..write('commandFingerprint: $commandFingerprint, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    actionId,
+    actionType,
+    source,
+    status,
+    targetEntityType,
+    targetEntityId,
+    beforeSummary,
+    afterSummary,
+    confirmed,
+    authRequired,
+    authSucceeded,
+    errorCode,
+    undoStatus,
+    commandFingerprint,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VoiceActionAuditRow &&
+          other.id == this.id &&
+          other.actionId == this.actionId &&
+          other.actionType == this.actionType &&
+          other.source == this.source &&
+          other.status == this.status &&
+          other.targetEntityType == this.targetEntityType &&
+          other.targetEntityId == this.targetEntityId &&
+          other.beforeSummary == this.beforeSummary &&
+          other.afterSummary == this.afterSummary &&
+          other.confirmed == this.confirmed &&
+          other.authRequired == this.authRequired &&
+          other.authSucceeded == this.authSucceeded &&
+          other.errorCode == this.errorCode &&
+          other.undoStatus == this.undoStatus &&
+          other.commandFingerprint == this.commandFingerprint &&
+          other.createdAt == this.createdAt);
+}
+
+class VoiceActionAuditsCompanion extends UpdateCompanion<VoiceActionAuditRow> {
+  final Value<String> id;
+  final Value<String> actionId;
+  final Value<String> actionType;
+  final Value<String> source;
+  final Value<String> status;
+  final Value<String?> targetEntityType;
+  final Value<String?> targetEntityId;
+  final Value<String> beforeSummary;
+  final Value<String> afterSummary;
+  final Value<bool> confirmed;
+  final Value<bool> authRequired;
+  final Value<bool> authSucceeded;
+  final Value<String?> errorCode;
+  final Value<String> undoStatus;
+  final Value<String> commandFingerprint;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const VoiceActionAuditsCompanion({
+    this.id = const Value.absent(),
+    this.actionId = const Value.absent(),
+    this.actionType = const Value.absent(),
+    this.source = const Value.absent(),
+    this.status = const Value.absent(),
+    this.targetEntityType = const Value.absent(),
+    this.targetEntityId = const Value.absent(),
+    this.beforeSummary = const Value.absent(),
+    this.afterSummary = const Value.absent(),
+    this.confirmed = const Value.absent(),
+    this.authRequired = const Value.absent(),
+    this.authSucceeded = const Value.absent(),
+    this.errorCode = const Value.absent(),
+    this.undoStatus = const Value.absent(),
+    this.commandFingerprint = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VoiceActionAuditsCompanion.insert({
+    required String id,
+    required String actionId,
+    required String actionType,
+    required String source,
+    required String status,
+    this.targetEntityType = const Value.absent(),
+    this.targetEntityId = const Value.absent(),
+    this.beforeSummary = const Value.absent(),
+    this.afterSummary = const Value.absent(),
+    this.confirmed = const Value.absent(),
+    this.authRequired = const Value.absent(),
+    this.authSucceeded = const Value.absent(),
+    this.errorCode = const Value.absent(),
+    this.undoStatus = const Value.absent(),
+    required String commandFingerprint,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       actionId = Value(actionId),
+       actionType = Value(actionType),
+       source = Value(source),
+       status = Value(status),
+       commandFingerprint = Value(commandFingerprint);
+  static Insertable<VoiceActionAuditRow> custom({
+    Expression<String>? id,
+    Expression<String>? actionId,
+    Expression<String>? actionType,
+    Expression<String>? source,
+    Expression<String>? status,
+    Expression<String>? targetEntityType,
+    Expression<String>? targetEntityId,
+    Expression<String>? beforeSummary,
+    Expression<String>? afterSummary,
+    Expression<bool>? confirmed,
+    Expression<bool>? authRequired,
+    Expression<bool>? authSucceeded,
+    Expression<String>? errorCode,
+    Expression<String>? undoStatus,
+    Expression<String>? commandFingerprint,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (actionId != null) 'action_id': actionId,
+      if (actionType != null) 'action_type': actionType,
+      if (source != null) 'source': source,
+      if (status != null) 'status': status,
+      if (targetEntityType != null) 'target_entity_type': targetEntityType,
+      if (targetEntityId != null) 'target_entity_id': targetEntityId,
+      if (beforeSummary != null) 'before_summary': beforeSummary,
+      if (afterSummary != null) 'after_summary': afterSummary,
+      if (confirmed != null) 'confirmed': confirmed,
+      if (authRequired != null) 'auth_required': authRequired,
+      if (authSucceeded != null) 'auth_succeeded': authSucceeded,
+      if (errorCode != null) 'error_code': errorCode,
+      if (undoStatus != null) 'undo_status': undoStatus,
+      if (commandFingerprint != null) 'command_fingerprint': commandFingerprint,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VoiceActionAuditsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? actionId,
+    Value<String>? actionType,
+    Value<String>? source,
+    Value<String>? status,
+    Value<String?>? targetEntityType,
+    Value<String?>? targetEntityId,
+    Value<String>? beforeSummary,
+    Value<String>? afterSummary,
+    Value<bool>? confirmed,
+    Value<bool>? authRequired,
+    Value<bool>? authSucceeded,
+    Value<String?>? errorCode,
+    Value<String>? undoStatus,
+    Value<String>? commandFingerprint,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return VoiceActionAuditsCompanion(
+      id: id ?? this.id,
+      actionId: actionId ?? this.actionId,
+      actionType: actionType ?? this.actionType,
+      source: source ?? this.source,
+      status: status ?? this.status,
+      targetEntityType: targetEntityType ?? this.targetEntityType,
+      targetEntityId: targetEntityId ?? this.targetEntityId,
+      beforeSummary: beforeSummary ?? this.beforeSummary,
+      afterSummary: afterSummary ?? this.afterSummary,
+      confirmed: confirmed ?? this.confirmed,
+      authRequired: authRequired ?? this.authRequired,
+      authSucceeded: authSucceeded ?? this.authSucceeded,
+      errorCode: errorCode ?? this.errorCode,
+      undoStatus: undoStatus ?? this.undoStatus,
+      commandFingerprint: commandFingerprint ?? this.commandFingerprint,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (actionId.present) {
+      map['action_id'] = Variable<String>(actionId.value);
+    }
+    if (actionType.present) {
+      map['action_type'] = Variable<String>(actionType.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (targetEntityType.present) {
+      map['target_entity_type'] = Variable<String>(targetEntityType.value);
+    }
+    if (targetEntityId.present) {
+      map['target_entity_id'] = Variable<String>(targetEntityId.value);
+    }
+    if (beforeSummary.present) {
+      map['before_summary'] = Variable<String>(beforeSummary.value);
+    }
+    if (afterSummary.present) {
+      map['after_summary'] = Variable<String>(afterSummary.value);
+    }
+    if (confirmed.present) {
+      map['confirmed'] = Variable<bool>(confirmed.value);
+    }
+    if (authRequired.present) {
+      map['auth_required'] = Variable<bool>(authRequired.value);
+    }
+    if (authSucceeded.present) {
+      map['auth_succeeded'] = Variable<bool>(authSucceeded.value);
+    }
+    if (errorCode.present) {
+      map['error_code'] = Variable<String>(errorCode.value);
+    }
+    if (undoStatus.present) {
+      map['undo_status'] = Variable<String>(undoStatus.value);
+    }
+    if (commandFingerprint.present) {
+      map['command_fingerprint'] = Variable<String>(commandFingerprint.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VoiceActionAuditsCompanion(')
+          ..write('id: $id, ')
+          ..write('actionId: $actionId, ')
+          ..write('actionType: $actionType, ')
+          ..write('source: $source, ')
+          ..write('status: $status, ')
+          ..write('targetEntityType: $targetEntityType, ')
+          ..write('targetEntityId: $targetEntityId, ')
+          ..write('beforeSummary: $beforeSummary, ')
+          ..write('afterSummary: $afterSummary, ')
+          ..write('confirmed: $confirmed, ')
+          ..write('authRequired: $authRequired, ')
+          ..write('authSucceeded: $authSucceeded, ')
+          ..write('errorCode: $errorCode, ')
+          ..write('undoStatus: $undoStatus, ')
+          ..write('commandFingerprint: $commandFingerprint, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4874,6 +7563,16 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
+  late final $VoiceProductAliasesTable voiceProductAliases =
+      $VoiceProductAliasesTable(this);
+  late final $VoiceUnitAliasesTable voiceUnitAliases = $VoiceUnitAliasesTable(
+    this,
+  );
+  late final $VoiceCorrectionsTable voiceCorrections = $VoiceCorrectionsTable(
+    this,
+  );
+  late final $VoiceActionAuditsTable voiceActionAudits =
+      $VoiceActionAuditsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4887,6 +7586,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     transactionLines,
     businessProfiles,
     appSettings,
+    voiceProductAliases,
+    voiceUnitAliases,
+    voiceCorrections,
+    voiceActionAudits,
   ];
 }
 
@@ -5259,7 +7962,10 @@ typedef $$ProductsTableCreateCompanionBuilder =
       Value<int> wholesalePrice,
       Value<int> packSize,
       Value<int> cartonSize,
-      Value<int> stockPcs,
+      Value<double> stockPcs,
+      Value<bool> trackStock,
+      Value<String> baseUnit,
+      Value<double> minStock,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
@@ -5277,7 +7983,10 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<int> wholesalePrice,
       Value<int> packSize,
       Value<int> cartonSize,
-      Value<int> stockPcs,
+      Value<double> stockPcs,
+      Value<bool> trackStock,
+      Value<String> baseUnit,
+      Value<double> minStock,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
@@ -5325,6 +8034,33 @@ final class $$ProductsTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _transactionLinesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $VoiceProductAliasesTable,
+    List<VoiceProductAliasRow>
+  >
+  _voiceProductAliasesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.voiceProductAliases,
+        aliasName: $_aliasNameGenerator(
+          db.products.id,
+          db.voiceProductAliases.productId,
+        ),
+      );
+
+  $$VoiceProductAliasesTableProcessedTableManager get voiceProductAliasesRefs {
+    final manager = $$VoiceProductAliasesTableTableManager(
+      $_db,
+      $_db.voiceProductAliases,
+    ).filter((f) => f.productId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _voiceProductAliasesRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -5381,8 +8117,23 @@ class $$ProductsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get stockPcs => $composableBuilder(
+  ColumnFilters<double> get stockPcs => $composableBuilder(
     column: $table.stockPcs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get trackStock => $composableBuilder(
+    column: $table.trackStock,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get baseUnit => $composableBuilder(
+    column: $table.baseUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get minStock => $composableBuilder(
+    column: $table.minStock,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5453,6 +8204,31 @@ class $$ProductsTableFilterComposer
     );
     return f(composer);
   }
+
+  Expression<bool> voiceProductAliasesRefs(
+    Expression<bool> Function($$VoiceProductAliasesTableFilterComposer f) f,
+  ) {
+    final $$VoiceProductAliasesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.voiceProductAliases,
+      getReferencedColumn: (t) => t.productId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VoiceProductAliasesTableFilterComposer(
+            $db: $db,
+            $table: $db.voiceProductAliases,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ProductsTableOrderingComposer
@@ -5504,8 +8280,23 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get stockPcs => $composableBuilder(
+  ColumnOrderings<double> get stockPcs => $composableBuilder(
     column: $table.stockPcs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get trackStock => $composableBuilder(
+    column: $table.trackStock,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get baseUnit => $composableBuilder(
+    column: $table.baseUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get minStock => $composableBuilder(
+    column: $table.minStock,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5594,8 +8385,19 @@ class $$ProductsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<int> get stockPcs =>
+  GeneratedColumn<double> get stockPcs =>
       $composableBuilder(column: $table.stockPcs, builder: (column) => column);
+
+  GeneratedColumn<bool> get trackStock => $composableBuilder(
+    column: $table.trackStock,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get baseUnit =>
+      $composableBuilder(column: $table.baseUnit, builder: (column) => column);
+
+  GeneratedColumn<double> get minStock =>
+      $composableBuilder(column: $table.minStock, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -5659,6 +8461,32 @@ class $$ProductsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> voiceProductAliasesRefs<T extends Object>(
+    Expression<T> Function($$VoiceProductAliasesTableAnnotationComposer a) f,
+  ) {
+    final $$VoiceProductAliasesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.voiceProductAliases,
+          getReferencedColumn: (t) => t.productId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$VoiceProductAliasesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.voiceProductAliases,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$ProductsTableTableManager
@@ -5674,7 +8502,11 @@ class $$ProductsTableTableManager
           $$ProductsTableUpdateCompanionBuilder,
           (ProductRow, $$ProductsTableReferences),
           ProductRow,
-          PrefetchHooks Function({bool categoryId, bool transactionLinesRefs})
+          PrefetchHooks Function({
+            bool categoryId,
+            bool transactionLinesRefs,
+            bool voiceProductAliasesRefs,
+          })
         > {
   $$ProductsTableTableManager(_$AppDatabase db, $ProductsTable table)
     : super(
@@ -5698,7 +8530,10 @@ class $$ProductsTableTableManager
                 Value<int> wholesalePrice = const Value.absent(),
                 Value<int> packSize = const Value.absent(),
                 Value<int> cartonSize = const Value.absent(),
-                Value<int> stockPcs = const Value.absent(),
+                Value<double> stockPcs = const Value.absent(),
+                Value<bool> trackStock = const Value.absent(),
+                Value<String> baseUnit = const Value.absent(),
+                Value<double> minStock = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -5715,6 +8550,9 @@ class $$ProductsTableTableManager
                 packSize: packSize,
                 cartonSize: cartonSize,
                 stockPcs: stockPcs,
+                trackStock: trackStock,
+                baseUnit: baseUnit,
+                minStock: minStock,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -5732,7 +8570,10 @@ class $$ProductsTableTableManager
                 Value<int> wholesalePrice = const Value.absent(),
                 Value<int> packSize = const Value.absent(),
                 Value<int> cartonSize = const Value.absent(),
-                Value<int> stockPcs = const Value.absent(),
+                Value<double> stockPcs = const Value.absent(),
+                Value<bool> trackStock = const Value.absent(),
+                Value<String> baseUnit = const Value.absent(),
+                Value<double> minStock = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -5749,6 +8590,9 @@ class $$ProductsTableTableManager
                 packSize: packSize,
                 cartonSize: cartonSize,
                 stockPcs: stockPcs,
+                trackStock: trackStock,
+                baseUnit: baseUnit,
+                minStock: minStock,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -5764,11 +8608,16 @@ class $$ProductsTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({categoryId = false, transactionLinesRefs = false}) {
+              ({
+                categoryId = false,
+                transactionLinesRefs = false,
+                voiceProductAliasesRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (transactionLinesRefs) db.transactionLines,
+                    if (voiceProductAliasesRefs) db.voiceProductAliases,
                   ],
                   addJoins:
                       <
@@ -5825,6 +8674,27 @@ class $$ProductsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (voiceProductAliasesRefs)
+                        await $_getPrefetchedData<
+                          ProductRow,
+                          $ProductsTable,
+                          VoiceProductAliasRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ProductsTableReferences
+                              ._voiceProductAliasesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ProductsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).voiceProductAliasesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.productId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -5845,7 +8715,11 @@ typedef $$ProductsTableProcessedTableManager =
       $$ProductsTableUpdateCompanionBuilder,
       (ProductRow, $$ProductsTableReferences),
       ProductRow,
-      PrefetchHooks Function({bool categoryId, bool transactionLinesRefs})
+      PrefetchHooks Function({
+        bool categoryId,
+        bool transactionLinesRefs,
+        bool voiceProductAliasesRefs,
+      })
     >;
 typedef $$WalletsTableCreateCompanionBuilder =
     WalletsCompanion Function({
@@ -7363,12 +10237,12 @@ typedef $$TransactionLinesTableCreateCompanionBuilder =
       Value<String?> productId,
       required String productNameSnapshot,
       Value<int> position,
-      Value<int> quantity,
+      Value<double> quantity,
       required String unit,
       Value<int> unitPrice,
       Value<int> costPrice,
       required String segment,
-      Value<int> unitMultiplier,
+      Value<double> unitMultiplier,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -7379,12 +10253,12 @@ typedef $$TransactionLinesTableUpdateCompanionBuilder =
       Value<String?> productId,
       Value<String> productNameSnapshot,
       Value<int> position,
-      Value<int> quantity,
+      Value<double> quantity,
       Value<String> unit,
       Value<int> unitPrice,
       Value<int> costPrice,
       Value<String> segment,
-      Value<int> unitMultiplier,
+      Value<double> unitMultiplier,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -7468,7 +10342,7 @@ class $$TransactionLinesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get quantity => $composableBuilder(
+  ColumnFilters<double> get quantity => $composableBuilder(
     column: $table.quantity,
     builder: (column) => ColumnFilters(column),
   );
@@ -7493,7 +10367,7 @@ class $$TransactionLinesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get unitMultiplier => $composableBuilder(
+  ColumnFilters<double> get unitMultiplier => $composableBuilder(
     column: $table.unitMultiplier,
     builder: (column) => ColumnFilters(column),
   );
@@ -7574,7 +10448,7 @@ class $$TransactionLinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get quantity => $composableBuilder(
+  ColumnOrderings<double> get quantity => $composableBuilder(
     column: $table.quantity,
     builder: (column) => ColumnOrderings(column),
   );
@@ -7599,7 +10473,7 @@ class $$TransactionLinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get unitMultiplier => $composableBuilder(
+  ColumnOrderings<double> get unitMultiplier => $composableBuilder(
     column: $table.unitMultiplier,
     builder: (column) => ColumnOrderings(column),
   );
@@ -7676,7 +10550,7 @@ class $$TransactionLinesTableAnnotationComposer
   GeneratedColumn<int> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
 
-  GeneratedColumn<int> get quantity =>
+  GeneratedColumn<double> get quantity =>
       $composableBuilder(column: $table.quantity, builder: (column) => column);
 
   GeneratedColumn<String> get unit =>
@@ -7691,7 +10565,7 @@ class $$TransactionLinesTableAnnotationComposer
   GeneratedColumn<String> get segment =>
       $composableBuilder(column: $table.segment, builder: (column) => column);
 
-  GeneratedColumn<int> get unitMultiplier => $composableBuilder(
+  GeneratedColumn<double> get unitMultiplier => $composableBuilder(
     column: $table.unitMultiplier,
     builder: (column) => column,
   );
@@ -7781,12 +10655,12 @@ class $$TransactionLinesTableTableManager
                 Value<String?> productId = const Value.absent(),
                 Value<String> productNameSnapshot = const Value.absent(),
                 Value<int> position = const Value.absent(),
-                Value<int> quantity = const Value.absent(),
+                Value<double> quantity = const Value.absent(),
                 Value<String> unit = const Value.absent(),
                 Value<int> unitPrice = const Value.absent(),
                 Value<int> costPrice = const Value.absent(),
                 Value<String> segment = const Value.absent(),
-                Value<int> unitMultiplier = const Value.absent(),
+                Value<double> unitMultiplier = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TransactionLinesCompanion(
@@ -7811,12 +10685,12 @@ class $$TransactionLinesTableTableManager
                 Value<String?> productId = const Value.absent(),
                 required String productNameSnapshot,
                 Value<int> position = const Value.absent(),
-                Value<int> quantity = const Value.absent(),
+                Value<double> quantity = const Value.absent(),
                 required String unit,
                 Value<int> unitPrice = const Value.absent(),
                 Value<int> costPrice = const Value.absent(),
                 required String segment,
-                Value<int> unitMultiplier = const Value.absent(),
+                Value<double> unitMultiplier = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TransactionLinesCompanion.insert(
@@ -8393,6 +11267,1395 @@ typedef $$AppSettingsTableProcessedTableManager =
       AppSettingRow,
       PrefetchHooks Function()
     >;
+typedef $$VoiceProductAliasesTableCreateCompanionBuilder =
+    VoiceProductAliasesCompanion Function({
+      required String id,
+      required String aliasText,
+      required String normalizedAlias,
+      Value<String?> productId,
+      required String canonicalProductName,
+      Value<int> hitCount,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$VoiceProductAliasesTableUpdateCompanionBuilder =
+    VoiceProductAliasesCompanion Function({
+      Value<String> id,
+      Value<String> aliasText,
+      Value<String> normalizedAlias,
+      Value<String?> productId,
+      Value<String> canonicalProductName,
+      Value<int> hitCount,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$VoiceProductAliasesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $VoiceProductAliasesTable,
+          VoiceProductAliasRow
+        > {
+  $$VoiceProductAliasesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ProductsTable _productIdTable(_$AppDatabase db) =>
+      db.products.createAlias(
+        $_aliasNameGenerator(db.voiceProductAliases.productId, db.products.id),
+      );
+
+  $$ProductsTableProcessedTableManager? get productId {
+    final $_column = $_itemColumn<String>('product_id');
+    if ($_column == null) return null;
+    final manager = $$ProductsTableTableManager(
+      $_db,
+      $_db.products,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_productIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$VoiceProductAliasesTableFilterComposer
+    extends Composer<_$AppDatabase, $VoiceProductAliasesTable> {
+  $$VoiceProductAliasesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get aliasText => $composableBuilder(
+    column: $table.aliasText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get normalizedAlias => $composableBuilder(
+    column: $table.normalizedAlias,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalProductName => $composableBuilder(
+    column: $table.canonicalProductName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hitCount => $composableBuilder(
+    column: $table.hitCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ProductsTableFilterComposer get productId {
+    final $$ProductsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.productId,
+      referencedTable: $db.products,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductsTableFilterComposer(
+            $db: $db,
+            $table: $db.products,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$VoiceProductAliasesTableOrderingComposer
+    extends Composer<_$AppDatabase, $VoiceProductAliasesTable> {
+  $$VoiceProductAliasesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get aliasText => $composableBuilder(
+    column: $table.aliasText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get normalizedAlias => $composableBuilder(
+    column: $table.normalizedAlias,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get canonicalProductName => $composableBuilder(
+    column: $table.canonicalProductName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get hitCount => $composableBuilder(
+    column: $table.hitCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ProductsTableOrderingComposer get productId {
+    final $$ProductsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.productId,
+      referencedTable: $db.products,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductsTableOrderingComposer(
+            $db: $db,
+            $table: $db.products,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$VoiceProductAliasesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VoiceProductAliasesTable> {
+  $$VoiceProductAliasesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get aliasText =>
+      $composableBuilder(column: $table.aliasText, builder: (column) => column);
+
+  GeneratedColumn<String> get normalizedAlias => $composableBuilder(
+    column: $table.normalizedAlias,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get canonicalProductName => $composableBuilder(
+    column: $table.canonicalProductName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get hitCount =>
+      $composableBuilder(column: $table.hitCount, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$ProductsTableAnnotationComposer get productId {
+    final $$ProductsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.productId,
+      referencedTable: $db.products,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.products,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$VoiceProductAliasesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $VoiceProductAliasesTable,
+          VoiceProductAliasRow,
+          $$VoiceProductAliasesTableFilterComposer,
+          $$VoiceProductAliasesTableOrderingComposer,
+          $$VoiceProductAliasesTableAnnotationComposer,
+          $$VoiceProductAliasesTableCreateCompanionBuilder,
+          $$VoiceProductAliasesTableUpdateCompanionBuilder,
+          (VoiceProductAliasRow, $$VoiceProductAliasesTableReferences),
+          VoiceProductAliasRow,
+          PrefetchHooks Function({bool productId})
+        > {
+  $$VoiceProductAliasesTableTableManager(
+    _$AppDatabase db,
+    $VoiceProductAliasesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VoiceProductAliasesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VoiceProductAliasesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$VoiceProductAliasesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> aliasText = const Value.absent(),
+                Value<String> normalizedAlias = const Value.absent(),
+                Value<String?> productId = const Value.absent(),
+                Value<String> canonicalProductName = const Value.absent(),
+                Value<int> hitCount = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VoiceProductAliasesCompanion(
+                id: id,
+                aliasText: aliasText,
+                normalizedAlias: normalizedAlias,
+                productId: productId,
+                canonicalProductName: canonicalProductName,
+                hitCount: hitCount,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String aliasText,
+                required String normalizedAlias,
+                Value<String?> productId = const Value.absent(),
+                required String canonicalProductName,
+                Value<int> hitCount = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VoiceProductAliasesCompanion.insert(
+                id: id,
+                aliasText: aliasText,
+                normalizedAlias: normalizedAlias,
+                productId: productId,
+                canonicalProductName: canonicalProductName,
+                hitCount: hitCount,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$VoiceProductAliasesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({productId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (productId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.productId,
+                                referencedTable:
+                                    $$VoiceProductAliasesTableReferences
+                                        ._productIdTable(db),
+                                referencedColumn:
+                                    $$VoiceProductAliasesTableReferences
+                                        ._productIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$VoiceProductAliasesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $VoiceProductAliasesTable,
+      VoiceProductAliasRow,
+      $$VoiceProductAliasesTableFilterComposer,
+      $$VoiceProductAliasesTableOrderingComposer,
+      $$VoiceProductAliasesTableAnnotationComposer,
+      $$VoiceProductAliasesTableCreateCompanionBuilder,
+      $$VoiceProductAliasesTableUpdateCompanionBuilder,
+      (VoiceProductAliasRow, $$VoiceProductAliasesTableReferences),
+      VoiceProductAliasRow,
+      PrefetchHooks Function({bool productId})
+    >;
+typedef $$VoiceUnitAliasesTableCreateCompanionBuilder =
+    VoiceUnitAliasesCompanion Function({
+      required String id,
+      required String aliasText,
+      required String normalizedAlias,
+      required String canonicalUnit,
+      Value<int> hitCount,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$VoiceUnitAliasesTableUpdateCompanionBuilder =
+    VoiceUnitAliasesCompanion Function({
+      Value<String> id,
+      Value<String> aliasText,
+      Value<String> normalizedAlias,
+      Value<String> canonicalUnit,
+      Value<int> hitCount,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$VoiceUnitAliasesTableFilterComposer
+    extends Composer<_$AppDatabase, $VoiceUnitAliasesTable> {
+  $$VoiceUnitAliasesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get aliasText => $composableBuilder(
+    column: $table.aliasText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get normalizedAlias => $composableBuilder(
+    column: $table.normalizedAlias,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalUnit => $composableBuilder(
+    column: $table.canonicalUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hitCount => $composableBuilder(
+    column: $table.hitCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$VoiceUnitAliasesTableOrderingComposer
+    extends Composer<_$AppDatabase, $VoiceUnitAliasesTable> {
+  $$VoiceUnitAliasesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get aliasText => $composableBuilder(
+    column: $table.aliasText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get normalizedAlias => $composableBuilder(
+    column: $table.normalizedAlias,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get canonicalUnit => $composableBuilder(
+    column: $table.canonicalUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get hitCount => $composableBuilder(
+    column: $table.hitCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$VoiceUnitAliasesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VoiceUnitAliasesTable> {
+  $$VoiceUnitAliasesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get aliasText =>
+      $composableBuilder(column: $table.aliasText, builder: (column) => column);
+
+  GeneratedColumn<String> get normalizedAlias => $composableBuilder(
+    column: $table.normalizedAlias,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get canonicalUnit => $composableBuilder(
+    column: $table.canonicalUnit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get hitCount =>
+      $composableBuilder(column: $table.hitCount, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$VoiceUnitAliasesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $VoiceUnitAliasesTable,
+          VoiceUnitAliasRow,
+          $$VoiceUnitAliasesTableFilterComposer,
+          $$VoiceUnitAliasesTableOrderingComposer,
+          $$VoiceUnitAliasesTableAnnotationComposer,
+          $$VoiceUnitAliasesTableCreateCompanionBuilder,
+          $$VoiceUnitAliasesTableUpdateCompanionBuilder,
+          (
+            VoiceUnitAliasRow,
+            BaseReferences<
+              _$AppDatabase,
+              $VoiceUnitAliasesTable,
+              VoiceUnitAliasRow
+            >,
+          ),
+          VoiceUnitAliasRow,
+          PrefetchHooks Function()
+        > {
+  $$VoiceUnitAliasesTableTableManager(
+    _$AppDatabase db,
+    $VoiceUnitAliasesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VoiceUnitAliasesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VoiceUnitAliasesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VoiceUnitAliasesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> aliasText = const Value.absent(),
+                Value<String> normalizedAlias = const Value.absent(),
+                Value<String> canonicalUnit = const Value.absent(),
+                Value<int> hitCount = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VoiceUnitAliasesCompanion(
+                id: id,
+                aliasText: aliasText,
+                normalizedAlias: normalizedAlias,
+                canonicalUnit: canonicalUnit,
+                hitCount: hitCount,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String aliasText,
+                required String normalizedAlias,
+                required String canonicalUnit,
+                Value<int> hitCount = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VoiceUnitAliasesCompanion.insert(
+                id: id,
+                aliasText: aliasText,
+                normalizedAlias: normalizedAlias,
+                canonicalUnit: canonicalUnit,
+                hitCount: hitCount,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$VoiceUnitAliasesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $VoiceUnitAliasesTable,
+      VoiceUnitAliasRow,
+      $$VoiceUnitAliasesTableFilterComposer,
+      $$VoiceUnitAliasesTableOrderingComposer,
+      $$VoiceUnitAliasesTableAnnotationComposer,
+      $$VoiceUnitAliasesTableCreateCompanionBuilder,
+      $$VoiceUnitAliasesTableUpdateCompanionBuilder,
+      (
+        VoiceUnitAliasRow,
+        BaseReferences<
+          _$AppDatabase,
+          $VoiceUnitAliasesTable,
+          VoiceUnitAliasRow
+        >,
+      ),
+      VoiceUnitAliasRow,
+      PrefetchHooks Function()
+    >;
+typedef $$VoiceCorrectionsTableCreateCompanionBuilder =
+    VoiceCorrectionsCompanion Function({
+      required String id,
+      required String rawText,
+      Value<String?> parsedProductName,
+      required String correctedProductName,
+      Value<String?> parsedUnit,
+      required String correctedUnit,
+      Value<double?> parsedQuantity,
+      required double correctedQuantity,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$VoiceCorrectionsTableUpdateCompanionBuilder =
+    VoiceCorrectionsCompanion Function({
+      Value<String> id,
+      Value<String> rawText,
+      Value<String?> parsedProductName,
+      Value<String> correctedProductName,
+      Value<String?> parsedUnit,
+      Value<String> correctedUnit,
+      Value<double?> parsedQuantity,
+      Value<double> correctedQuantity,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$VoiceCorrectionsTableFilterComposer
+    extends Composer<_$AppDatabase, $VoiceCorrectionsTable> {
+  $$VoiceCorrectionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rawText => $composableBuilder(
+    column: $table.rawText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parsedProductName => $composableBuilder(
+    column: $table.parsedProductName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get correctedProductName => $composableBuilder(
+    column: $table.correctedProductName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parsedUnit => $composableBuilder(
+    column: $table.parsedUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get correctedUnit => $composableBuilder(
+    column: $table.correctedUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get parsedQuantity => $composableBuilder(
+    column: $table.parsedQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get correctedQuantity => $composableBuilder(
+    column: $table.correctedQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$VoiceCorrectionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $VoiceCorrectionsTable> {
+  $$VoiceCorrectionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rawText => $composableBuilder(
+    column: $table.rawText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parsedProductName => $composableBuilder(
+    column: $table.parsedProductName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get correctedProductName => $composableBuilder(
+    column: $table.correctedProductName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parsedUnit => $composableBuilder(
+    column: $table.parsedUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get correctedUnit => $composableBuilder(
+    column: $table.correctedUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get parsedQuantity => $composableBuilder(
+    column: $table.parsedQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get correctedQuantity => $composableBuilder(
+    column: $table.correctedQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$VoiceCorrectionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VoiceCorrectionsTable> {
+  $$VoiceCorrectionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get rawText =>
+      $composableBuilder(column: $table.rawText, builder: (column) => column);
+
+  GeneratedColumn<String> get parsedProductName => $composableBuilder(
+    column: $table.parsedProductName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get correctedProductName => $composableBuilder(
+    column: $table.correctedProductName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parsedUnit => $composableBuilder(
+    column: $table.parsedUnit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get correctedUnit => $composableBuilder(
+    column: $table.correctedUnit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get parsedQuantity => $composableBuilder(
+    column: $table.parsedQuantity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get correctedQuantity => $composableBuilder(
+    column: $table.correctedQuantity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$VoiceCorrectionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $VoiceCorrectionsTable,
+          VoiceCorrectionRow,
+          $$VoiceCorrectionsTableFilterComposer,
+          $$VoiceCorrectionsTableOrderingComposer,
+          $$VoiceCorrectionsTableAnnotationComposer,
+          $$VoiceCorrectionsTableCreateCompanionBuilder,
+          $$VoiceCorrectionsTableUpdateCompanionBuilder,
+          (
+            VoiceCorrectionRow,
+            BaseReferences<
+              _$AppDatabase,
+              $VoiceCorrectionsTable,
+              VoiceCorrectionRow
+            >,
+          ),
+          VoiceCorrectionRow,
+          PrefetchHooks Function()
+        > {
+  $$VoiceCorrectionsTableTableManager(
+    _$AppDatabase db,
+    $VoiceCorrectionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VoiceCorrectionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VoiceCorrectionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VoiceCorrectionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> rawText = const Value.absent(),
+                Value<String?> parsedProductName = const Value.absent(),
+                Value<String> correctedProductName = const Value.absent(),
+                Value<String?> parsedUnit = const Value.absent(),
+                Value<String> correctedUnit = const Value.absent(),
+                Value<double?> parsedQuantity = const Value.absent(),
+                Value<double> correctedQuantity = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VoiceCorrectionsCompanion(
+                id: id,
+                rawText: rawText,
+                parsedProductName: parsedProductName,
+                correctedProductName: correctedProductName,
+                parsedUnit: parsedUnit,
+                correctedUnit: correctedUnit,
+                parsedQuantity: parsedQuantity,
+                correctedQuantity: correctedQuantity,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String rawText,
+                Value<String?> parsedProductName = const Value.absent(),
+                required String correctedProductName,
+                Value<String?> parsedUnit = const Value.absent(),
+                required String correctedUnit,
+                Value<double?> parsedQuantity = const Value.absent(),
+                required double correctedQuantity,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VoiceCorrectionsCompanion.insert(
+                id: id,
+                rawText: rawText,
+                parsedProductName: parsedProductName,
+                correctedProductName: correctedProductName,
+                parsedUnit: parsedUnit,
+                correctedUnit: correctedUnit,
+                parsedQuantity: parsedQuantity,
+                correctedQuantity: correctedQuantity,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$VoiceCorrectionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $VoiceCorrectionsTable,
+      VoiceCorrectionRow,
+      $$VoiceCorrectionsTableFilterComposer,
+      $$VoiceCorrectionsTableOrderingComposer,
+      $$VoiceCorrectionsTableAnnotationComposer,
+      $$VoiceCorrectionsTableCreateCompanionBuilder,
+      $$VoiceCorrectionsTableUpdateCompanionBuilder,
+      (
+        VoiceCorrectionRow,
+        BaseReferences<
+          _$AppDatabase,
+          $VoiceCorrectionsTable,
+          VoiceCorrectionRow
+        >,
+      ),
+      VoiceCorrectionRow,
+      PrefetchHooks Function()
+    >;
+typedef $$VoiceActionAuditsTableCreateCompanionBuilder =
+    VoiceActionAuditsCompanion Function({
+      required String id,
+      required String actionId,
+      required String actionType,
+      required String source,
+      required String status,
+      Value<String?> targetEntityType,
+      Value<String?> targetEntityId,
+      Value<String> beforeSummary,
+      Value<String> afterSummary,
+      Value<bool> confirmed,
+      Value<bool> authRequired,
+      Value<bool> authSucceeded,
+      Value<String?> errorCode,
+      Value<String> undoStatus,
+      required String commandFingerprint,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$VoiceActionAuditsTableUpdateCompanionBuilder =
+    VoiceActionAuditsCompanion Function({
+      Value<String> id,
+      Value<String> actionId,
+      Value<String> actionType,
+      Value<String> source,
+      Value<String> status,
+      Value<String?> targetEntityType,
+      Value<String?> targetEntityId,
+      Value<String> beforeSummary,
+      Value<String> afterSummary,
+      Value<bool> confirmed,
+      Value<bool> authRequired,
+      Value<bool> authSucceeded,
+      Value<String?> errorCode,
+      Value<String> undoStatus,
+      Value<String> commandFingerprint,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$VoiceActionAuditsTableFilterComposer
+    extends Composer<_$AppDatabase, $VoiceActionAuditsTable> {
+  $$VoiceActionAuditsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get actionId => $composableBuilder(
+    column: $table.actionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get actionType => $composableBuilder(
+    column: $table.actionType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetEntityType => $composableBuilder(
+    column: $table.targetEntityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetEntityId => $composableBuilder(
+    column: $table.targetEntityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get beforeSummary => $composableBuilder(
+    column: $table.beforeSummary,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get afterSummary => $composableBuilder(
+    column: $table.afterSummary,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get confirmed => $composableBuilder(
+    column: $table.confirmed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get authRequired => $composableBuilder(
+    column: $table.authRequired,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get authSucceeded => $composableBuilder(
+    column: $table.authSucceeded,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorCode => $composableBuilder(
+    column: $table.errorCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get undoStatus => $composableBuilder(
+    column: $table.undoStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get commandFingerprint => $composableBuilder(
+    column: $table.commandFingerprint,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$VoiceActionAuditsTableOrderingComposer
+    extends Composer<_$AppDatabase, $VoiceActionAuditsTable> {
+  $$VoiceActionAuditsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get actionId => $composableBuilder(
+    column: $table.actionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get actionType => $composableBuilder(
+    column: $table.actionType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetEntityType => $composableBuilder(
+    column: $table.targetEntityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetEntityId => $composableBuilder(
+    column: $table.targetEntityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get beforeSummary => $composableBuilder(
+    column: $table.beforeSummary,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get afterSummary => $composableBuilder(
+    column: $table.afterSummary,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get confirmed => $composableBuilder(
+    column: $table.confirmed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get authRequired => $composableBuilder(
+    column: $table.authRequired,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get authSucceeded => $composableBuilder(
+    column: $table.authSucceeded,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorCode => $composableBuilder(
+    column: $table.errorCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get undoStatus => $composableBuilder(
+    column: $table.undoStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get commandFingerprint => $composableBuilder(
+    column: $table.commandFingerprint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$VoiceActionAuditsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VoiceActionAuditsTable> {
+  $$VoiceActionAuditsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get actionId =>
+      $composableBuilder(column: $table.actionId, builder: (column) => column);
+
+  GeneratedColumn<String> get actionType => $composableBuilder(
+    column: $table.actionType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get targetEntityType => $composableBuilder(
+    column: $table.targetEntityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetEntityId => $composableBuilder(
+    column: $table.targetEntityId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get beforeSummary => $composableBuilder(
+    column: $table.beforeSummary,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get afterSummary => $composableBuilder(
+    column: $table.afterSummary,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get confirmed =>
+      $composableBuilder(column: $table.confirmed, builder: (column) => column);
+
+  GeneratedColumn<bool> get authRequired => $composableBuilder(
+    column: $table.authRequired,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get authSucceeded => $composableBuilder(
+    column: $table.authSucceeded,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get errorCode =>
+      $composableBuilder(column: $table.errorCode, builder: (column) => column);
+
+  GeneratedColumn<String> get undoStatus => $composableBuilder(
+    column: $table.undoStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get commandFingerprint => $composableBuilder(
+    column: $table.commandFingerprint,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$VoiceActionAuditsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $VoiceActionAuditsTable,
+          VoiceActionAuditRow,
+          $$VoiceActionAuditsTableFilterComposer,
+          $$VoiceActionAuditsTableOrderingComposer,
+          $$VoiceActionAuditsTableAnnotationComposer,
+          $$VoiceActionAuditsTableCreateCompanionBuilder,
+          $$VoiceActionAuditsTableUpdateCompanionBuilder,
+          (
+            VoiceActionAuditRow,
+            BaseReferences<
+              _$AppDatabase,
+              $VoiceActionAuditsTable,
+              VoiceActionAuditRow
+            >,
+          ),
+          VoiceActionAuditRow,
+          PrefetchHooks Function()
+        > {
+  $$VoiceActionAuditsTableTableManager(
+    _$AppDatabase db,
+    $VoiceActionAuditsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VoiceActionAuditsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VoiceActionAuditsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VoiceActionAuditsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> actionId = const Value.absent(),
+                Value<String> actionType = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> targetEntityType = const Value.absent(),
+                Value<String?> targetEntityId = const Value.absent(),
+                Value<String> beforeSummary = const Value.absent(),
+                Value<String> afterSummary = const Value.absent(),
+                Value<bool> confirmed = const Value.absent(),
+                Value<bool> authRequired = const Value.absent(),
+                Value<bool> authSucceeded = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
+                Value<String> undoStatus = const Value.absent(),
+                Value<String> commandFingerprint = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VoiceActionAuditsCompanion(
+                id: id,
+                actionId: actionId,
+                actionType: actionType,
+                source: source,
+                status: status,
+                targetEntityType: targetEntityType,
+                targetEntityId: targetEntityId,
+                beforeSummary: beforeSummary,
+                afterSummary: afterSummary,
+                confirmed: confirmed,
+                authRequired: authRequired,
+                authSucceeded: authSucceeded,
+                errorCode: errorCode,
+                undoStatus: undoStatus,
+                commandFingerprint: commandFingerprint,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String actionId,
+                required String actionType,
+                required String source,
+                required String status,
+                Value<String?> targetEntityType = const Value.absent(),
+                Value<String?> targetEntityId = const Value.absent(),
+                Value<String> beforeSummary = const Value.absent(),
+                Value<String> afterSummary = const Value.absent(),
+                Value<bool> confirmed = const Value.absent(),
+                Value<bool> authRequired = const Value.absent(),
+                Value<bool> authSucceeded = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
+                Value<String> undoStatus = const Value.absent(),
+                required String commandFingerprint,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VoiceActionAuditsCompanion.insert(
+                id: id,
+                actionId: actionId,
+                actionType: actionType,
+                source: source,
+                status: status,
+                targetEntityType: targetEntityType,
+                targetEntityId: targetEntityId,
+                beforeSummary: beforeSummary,
+                afterSummary: afterSummary,
+                confirmed: confirmed,
+                authRequired: authRequired,
+                authSucceeded: authSucceeded,
+                errorCode: errorCode,
+                undoStatus: undoStatus,
+                commandFingerprint: commandFingerprint,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$VoiceActionAuditsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $VoiceActionAuditsTable,
+      VoiceActionAuditRow,
+      $$VoiceActionAuditsTableFilterComposer,
+      $$VoiceActionAuditsTableOrderingComposer,
+      $$VoiceActionAuditsTableAnnotationComposer,
+      $$VoiceActionAuditsTableCreateCompanionBuilder,
+      $$VoiceActionAuditsTableUpdateCompanionBuilder,
+      (
+        VoiceActionAuditRow,
+        BaseReferences<
+          _$AppDatabase,
+          $VoiceActionAuditsTable,
+          VoiceActionAuditRow
+        >,
+      ),
+      VoiceActionAuditRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8413,4 +12676,12 @@ class $AppDatabaseManager {
       $$BusinessProfilesTableTableManager(_db, _db.businessProfiles);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db, _db.appSettings);
+  $$VoiceProductAliasesTableTableManager get voiceProductAliases =>
+      $$VoiceProductAliasesTableTableManager(_db, _db.voiceProductAliases);
+  $$VoiceUnitAliasesTableTableManager get voiceUnitAliases =>
+      $$VoiceUnitAliasesTableTableManager(_db, _db.voiceUnitAliases);
+  $$VoiceCorrectionsTableTableManager get voiceCorrections =>
+      $$VoiceCorrectionsTableTableManager(_db, _db.voiceCorrections);
+  $$VoiceActionAuditsTableTableManager get voiceActionAudits =>
+      $$VoiceActionAuditsTableTableManager(_db, _db.voiceActionAudits);
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../services/navigation/app_navigation_service.dart';
+import '../services/voice/voice_command.dart';
 import '../theme/app_theme.dart';
 import '../widgets/brand_mark.dart';
 import 'dashboard_screen.dart';
@@ -33,8 +35,20 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _finishAuth() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Mode prototype: auth produksi belum aktif, masuk ke data lokal.',
+        ),
+      ),
+    );
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const DashboardScreen()),
+      MaterialPageRoute(
+        settings: RouteSettings(
+          name: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+        ),
+        builder: (_) => const DashboardScreen(),
+      ),
     );
   }
 
@@ -81,6 +95,12 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
     );
   }
+}
+
+void _showAuthPlaceholder(BuildContext context, String feature) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('$feature belum aktif di prototype lokal Mikiezy.')),
+  );
 }
 
 class _AuthHeader extends StatelessWidget {
@@ -207,8 +227,8 @@ class _AuthCard extends StatelessWidget {
             const SizedBox(height: 5),
             Text(
               isRegister
-                  ? 'Start recording sales with AI voice'
-                  : 'Sign in to your MIKI account',
+                  ? 'Mode demo lokal, auth production belum aktif'
+                  : 'Mode demo lokal, belum tersambung ke auth production',
               style: const TextStyle(
                 color: AppColors.muted,
                 fontSize: 12,
@@ -250,7 +270,8 @@ class _AuthCard extends StatelessWidget {
               labelTrailing: isRegister
                   ? null
                   : TextButton(
-                      onPressed: () {},
+                      onPressed: () =>
+                          _showAuthPlaceholder(context, 'Reset password'),
                       style: TextButton.styleFrom(
                         minimumSize: Size.zero,
                         padding: EdgeInsets.zero,
@@ -283,7 +304,7 @@ class _AuthCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () {},
+                onPressed: () => _showAuthPlaceholder(context, 'Login Google'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   side: const BorderSide(color: AppColors.border, width: 1.4),

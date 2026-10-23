@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/constants/app_dimensions.dart';
 import '../core/formatters.dart';
+import '../domain/services/product_stock_service.dart';
 import '../models/mikiezy_models.dart';
 import '../shared/widgets/mikiezy_components.dart';
 import '../state/app_state.dart';
@@ -407,7 +408,10 @@ class _PreviewTransactionScreenState extends State<PreviewTransactionScreen> {
       if (line.productController.text.trim().isEmpty) {
         return '$label belum punya nama barang.';
       }
-      if (intFromController(line.quantityController) <= 0) {
+      if (line.productStatus == TransactionDraftProductStatus.ambiguous) {
+        return '$label masih ambigu. Pilih atau koreksi nama produknya.';
+      }
+      if (quantityFromController(line.quantityController) <= 0) {
         return '$label harus punya jumlah lebih dari 0.';
       }
       if (intFromController(line.priceController) <= 0) {
@@ -423,8 +427,10 @@ class _PreviewTransactionScreenState extends State<PreviewTransactionScreen> {
   int _currentAmount() {
     final subtotal = lineEditors.fold(0, (sum, line) => sum + line.total);
     if (kind != TransactionKind.sale) return subtotal;
-    final discount = intFromController(discountController).clamp(0, 999999999);
-    return (subtotal - discount).clamp(0, 1 << 31);
+    final discount = intFromController(
+      discountController,
+    ).clamp(0, 999999999).toInt();
+    return (subtotal - discount).clamp(0, 1 << 31).toInt();
   }
 
   TransactionDraft _draft() {
@@ -446,7 +452,7 @@ class _PreviewTransactionScreenState extends State<PreviewTransactionScreen> {
       unit: firstLine.unit,
       unitPrice: firstLine.unitPrice,
       discount: kind == TransactionKind.sale
-          ? intFromController(discountController).clamp(0, 999999999)
+          ? intFromController(discountController).clamp(0, 999999999).toInt()
           : 0,
       categoryName: _activeCategoryName(MikiezyScope.of(context)),
       walletName: _activeWalletName(MikiezyScope.of(context)),
@@ -661,14 +667,16 @@ class _PreviewTransactionScreenState extends State<PreviewTransactionScreen> {
         ),
         (route) => route.isFirst,
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Gagal menyimpan transaksi: $error\n$stackTrace');
       if (!mounted) return;
       setState(() => saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Transaksi belum tersimpan. Coba lagi sebentar.'),
-        ),
-      );
+      final message = error is StockNotEnoughException
+          ? error.toString()
+          : 'Transaksi belum tersimpan. Coba lagi sebentar.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 }
@@ -678,7 +686,7 @@ class _DraftLineEditor {
     required this.id,
     this.productId,
     required String productName,
-    required int quantity,
+    required double quantity,
     required this.unit,
     required int unitPrice,
     required int discount,
@@ -686,13 +694,20 @@ class _DraftLineEditor {
     this.categoryId,
     this.categoryName,
     this.note = '',
-    this.warnings = const [],
+    List<String> warnings = const [],
     this.needsReview = false,
+    this.priceSource = TransactionDraftPriceSource.manual,
+    this.productStatus = TransactionDraftProductStatus.unresolved,
+    List<String> productCandidates = const [],
     this.expanded = false,
   }) : productController = TextEditingController(text: productName),
-       quantityController = TextEditingController(text: quantity.toString()),
+       quantityController = TextEditingController(
+         text: quantityLabel(quantity),
+       ),
        priceController = TextEditingController(text: unitPrice.toString()),
-       discountController = TextEditingController(text: discount.toString());
+       discountController = TextEditingController(text: discount.toString()),
+       warnings = List<String>.of(warnings),
+       productCandidates = List<String>.of(productCandidates);
 
   factory _DraftLineEditor.fromDraftLine(
     TransactionDraftLine line, {
@@ -712,6 +727,9 @@ class _DraftLineEditor {
       note: line.note,
       warnings: line.warnings,
       needsReview: line.needsReview,
+      priceSource: line.priceSource,
+      productStatus: line.productStatus,
+      productCandidates: line.productCandidates,
       expanded: false,
     );
   }
@@ -732,7 +750,7 @@ class _DraftLineEditor {
   }
 
   final String id;
-  final String? productId;
+  String? productId;
   final TextEditingController productController;
   final TextEditingController quantityController;
   final TextEditingController priceController;
@@ -743,13 +761,20 @@ class _DraftLineEditor {
   final String? categoryName;
   final String note;
   final List<String> warnings;
-  final bool needsReview;
+  bool needsReview;
+  TransactionDraftPriceSource priceSource;
+  TransactionDraftProductStatus productStatus;
+  final List<String> productCandidates;
   bool expanded;
 
-  int get quantity => intFromController(quantityController).clamp(1, 999999);
+  double get quantity => quantityFromController(
+    quantityController,
+  ).clamp(0.001, 999999).toDouble();
   int get unitPrice => intFromController(priceController);
-  int get discount => intFromController(discountController).clamp(0, 999999999);
-  int get total => (quantity * unitPrice - discount).clamp(0, 1 << 31);
+  int get discount =>
+      intFromController(discountController).clamp(0, 999999999).toInt();
+  int get total =>
+      (quantity * unitPrice - discount).round().clamp(0, 1 << 31).toInt();
 
   TransactionDraftLine toDraftLine() {
     return TransactionDraftLine(
@@ -766,8 +791,81 @@ class _DraftLineEditor {
       note: note,
       warnings: warnings,
       needsReview: needsReview,
+      priceSource: priceSource,
+      productStatus: productStatus,
+      productCandidates: productCandidates,
     );
   }
+
+  void markProductEdited() {
+    final usedCatalogPrice = _usesCatalogPrice;
+    productId = null;
+    productStatus = usedCatalogPrice
+        ? TransactionDraftProductStatus.notFound
+        : TransactionDraftProductStatus.adHoc;
+    if (usedCatalogPrice) {
+      priceController.text = '0';
+      priceSource = TransactionDraftPriceSource.unavailable;
+    }
+    productCandidates.clear();
+    warnings.removeWhere(_isProductResolutionWarning);
+    needsReview = warnings.isNotEmpty;
+  }
+
+  void markPriceEdited() {
+    priceSource = TransactionDraftPriceSource.manual;
+    if (productStatus == TransactionDraftProductStatus.notFound) {
+      productStatus = TransactionDraftProductStatus.adHoc;
+    }
+    warnings.removeWhere(_isMissingPriceWarning);
+    needsReview = warnings.isNotEmpty;
+  }
+
+  void markUnitEdited() {
+    if (_usesCatalogPrice) {
+      priceController.text = '0';
+      priceSource = TransactionDraftPriceSource.unavailable;
+      warnings.removeWhere((warning) => warning.startsWith('Stok '));
+      if (!warnings.contains(_priceNeedsRefreshWarning)) {
+        warnings.add(_priceNeedsRefreshWarning);
+      }
+      needsReview = true;
+    } else {
+      priceSource = TransactionDraftPriceSource.manual;
+    }
+  }
+
+  void markSegmentEdited() {
+    markUnitEdited();
+  }
+
+  bool get _usesCatalogPrice => switch (priceSource) {
+    TransactionDraftPriceSource.catalogRetail ||
+    TransactionDraftPriceSource.catalogWholesale ||
+    TransactionDraftPriceSource.catalogPack ||
+    TransactionDraftPriceSource.catalogCarton => true,
+    _ => false,
+  };
+
+  bool _isProductResolutionWarning(String warning) {
+    return warning.startsWith('Barang "') ||
+        warning.startsWith('Produk "') ||
+        warning.startsWith('Stok ') ||
+        warning.startsWith('Harga grosir ') ||
+        warning.startsWith('Harga jual ') ||
+        warning.startsWith('Isi pack ') ||
+        warning.startsWith('Isi karton ');
+  }
+
+  bool _isMissingPriceWarning(String warning) {
+    return warning.startsWith('Harga atau nominal') ||
+        warning.startsWith('Harga belum disebutkan') ||
+        warning == _priceNeedsRefreshWarning ||
+        warning.contains('harganya belum disebutkan');
+  }
+
+  static const _priceNeedsRefreshWarning =
+      'Harga perlu diisi ulang setelah satuan atau kategori harga diubah.';
 
   void dispose() {
     productController.dispose();
@@ -775,6 +873,12 @@ class _DraftLineEditor {
     priceController.dispose();
     discountController.dispose();
   }
+}
+
+String _lineMetaLabel(_DraftLineEditor line) {
+  final productLabel = line.productStatus.warningLabel;
+  if (productLabel == null) return line.priceSource.label;
+  return '${line.priceSource.label} | $productLabel';
 }
 
 class _LineEditorCard extends StatelessWidget {
@@ -857,11 +961,23 @@ class _LineEditorCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${line.quantity} ${line.unit.label} x ${rupiah(line.unitPrice)}',
+                        '${quantityLabel(line.quantity)} ${line.unit.label} x ${rupiah(line.unitPrice)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: context.mutedText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _lineMetaLabel(line),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: line.productStatus.warningLabel == null
+                              ? context.mutedText
+                              : AppColors.warning,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -951,7 +1067,10 @@ class _LineEditorDetails extends StatelessWidget {
             labelText: 'Nama barang',
             helperText: 'Boleh dikoreksi sebelum disimpan.',
           ),
-          onChanged: (_) => onChanged(),
+          onChanged: (_) {
+            line.markProductEdited();
+            onChanged();
+          },
           validator: (value) {
             if ((value ?? '').trim().isEmpty) {
               return 'Nama barang wajib diisi.';
@@ -963,12 +1082,16 @@ class _LineEditorDetails extends StatelessWidget {
         TextFormField(
           key: ValueKey('preview-line-quantity-${line.id}'),
           controller: line.quantityController,
-          keyboardType: TextInputType.number,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(labelText: 'Jumlah'),
           onChanged: (_) => onChanged(),
           validator: (value) {
-            final parsed = int.tryParse((value ?? '').trim());
-            if (parsed == null || parsed <= 0) return 'Minimal 1.';
+            final parsed = double.tryParse(
+              (value ?? '').trim().replaceAll(',', '.'),
+            );
+            if (parsed == null || parsed <= 0) {
+              return 'Jumlah harus lebih dari 0.';
+            }
             return null;
           },
         ),
@@ -985,6 +1108,7 @@ class _LineEditorDetails extends StatelessWidget {
               .toList(),
           onChanged: (value) {
             line.unit = value ?? line.unit;
+            line.markUnitEdited();
             onChanged();
           },
         ),
@@ -994,7 +1118,10 @@ class _LineEditorDetails extends StatelessWidget {
           controller: line.priceController,
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Harga satuan'),
-          onChanged: (_) => onChanged(),
+          onChanged: (_) {
+            line.markPriceEdited();
+            onChanged();
+          },
           validator: (value) {
             final parsed = int.tryParse((value ?? '').trim());
             if (parsed == null || parsed <= 0) {
@@ -1035,6 +1162,7 @@ class _LineEditorDetails extends StatelessWidget {
                 .toList(),
             onChanged: (value) {
               line.segment = value ?? line.segment;
+              line.markSegmentEdited();
               onChanged();
             },
           ),

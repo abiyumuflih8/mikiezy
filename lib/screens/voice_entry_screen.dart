@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../services/voice/voice_entry_launch_source.dart';
+import '../services/voice/microphone_permission_service.dart';
+import '../services/voice/voice_navigation_handler.dart';
 import '../services/voice/voice_parse_context.dart';
+import '../services/navigation/app_navigation_service.dart';
+import '../services/security/app_lock_scope.dart';
 import '../services/voice_assistant_controller.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
@@ -31,7 +35,9 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
   late final VoiceAssistantController voice;
   late final TextEditingController transcriptController;
   Timer? _silenceTimer;
+  Timer? _nativeRestartTimer;
   String _lastSilenceTranscript = '';
+  int _lastSilenceTimeoutSeconds = 0;
   bool _hasAutoStarted = false;
   bool _isProcessingTranscript = false;
   bool _isClosing = false;
@@ -63,8 +69,25 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final state = MikiezyScope.of(context);
+    final appLock = AppLockScope.maybeOf(context);
+    voice.bindBusinessDataProvider(
+      () => state.businessQueryDataFor(isAppLocked: appLock?.isLocked ?? false),
+    );
+    final navigation = AppNavigationScope.maybeOf(context);
+    if (navigation != null) {
+      voice.bindNavigationHandler(
+        VoiceNavigationHandler(navigation: navigation),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _silenceTimer?.cancel();
+    _nativeRestartTimer?.cancel();
     voice.removeListener(_handleVoiceChanged);
     voice.dispose();
     transcriptController.dispose();
@@ -74,6 +97,7 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
   void _handleVoiceChanged() {
     _syncTranscriptField();
     _syncSilenceTimer();
+    _syncNativeListening();
   }
 
   void _syncTranscriptField() {
@@ -85,20 +109,59 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
   }
 
   void _syncSilenceTimer() {
-    if (!voice.nativeListening || !voice.isListening) {
+    if ((!voice.isListening && !voice.isStarting) ||
+        _isProcessingTranscript ||
+        _isClosing) {
       _silenceTimer?.cancel();
       _silenceTimer = null;
       return;
     }
 
     final transcript = voice.transcript.trim();
-    if (_silenceTimer == null || transcript != _lastSilenceTranscript) {
-      _lastSilenceTranscript = transcript;
+    if (transcript.isEmpty) {
+      _lastSilenceTranscript = '';
       _silenceTimer?.cancel();
-      _silenceTimer = Timer(const Duration(seconds: 5), () {
+      _silenceTimer = null;
+      return;
+    }
+
+    final timeoutSeconds = MikiezyScope.of(context).silentTimeoutSeconds;
+    if (_silenceTimer == null ||
+        transcript != _lastSilenceTranscript ||
+        timeoutSeconds != _lastSilenceTimeoutSeconds) {
+      _lastSilenceTranscript = transcript;
+      _lastSilenceTimeoutSeconds = timeoutSeconds;
+      _silenceTimer?.cancel();
+      _silenceTimer = Timer(Duration(seconds: timeoutSeconds), () {
         unawaited(_processFromSilence());
       });
     }
+  }
+
+  void _syncNativeListening() {
+    if (!mounted || _isProcessingTranscript || _isClosing) return;
+    if (!voice.isListening) {
+      _nativeRestartTimer?.cancel();
+      _nativeRestartTimer = null;
+      return;
+    }
+    if (voice.nativeListening || voice.isStarting) {
+      _nativeRestartTimer?.cancel();
+      _nativeRestartTimer = null;
+      return;
+    }
+    if (_nativeRestartTimer != null) return;
+
+    _nativeRestartTimer = Timer(const Duration(milliseconds: 250), () {
+      _nativeRestartTimer = null;
+      if (!mounted || _isProcessingTranscript || _isClosing) return;
+      if (!voice.isListening || voice.nativeListening || voice.isStarting) {
+        return;
+      }
+      unawaited(
+        voice.startListening(wakeWordAlreadyDetected: voice.wakeWordDetected),
+      );
+    });
   }
 
   @override
@@ -106,6 +169,7 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
     return AnimatedBuilder(
       animation: voice,
       builder: (context, _) {
+        final micActive = voice.nativeListening || _nativeRestartTimer != null;
         return PopScope<void>(
           canPop: false,
           onPopInvokedWithResult: (didPop, _) {
@@ -139,7 +203,7 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
                             const SizedBox(height: 14),
                             _VoiceVisual(
                               state: voice.phase,
-                              nativeListening: voice.nativeListening,
+                              nativeListening: micActive,
                               onTap: _toggleNativeListening,
                             ),
                             if (voice.isListening) ...[
@@ -148,7 +212,7 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
                               const SizedBox(height: 8),
                               Center(
                                 child: Text(
-                                  voice.nativeListening ? 'LIVE' : 'DEMO',
+                                  micActive ? 'LIVE' : 'DEMO',
                                   style: const TextStyle(
                                     color: Colors.white30,
                                     fontSize: 11,
@@ -162,8 +226,17 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
                               _TranscriptCard(
                                 controller: transcriptController,
                                 onChanged: voice.setTranscript,
+                                onClear: voice.clearTranscript,
                               ),
-                            if (voice.isError) _ErrorCard(state: voice.phase),
+                            if (voice.isError)
+                              _ErrorCard(
+                                state: voice.phase,
+                                message: voice.feedback,
+                                permissionState:
+                                    voice.microphonePermissionState,
+                                onOpenSettings: () =>
+                                    unawaited(voice.openMicrophoneSettings()),
+                              ),
                             const SizedBox(height: 10),
                             _FeedbackCard(
                               feedback: voice.feedback,
@@ -203,8 +276,16 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
   }
 
   Future<void> _processFromSilence() async {
-    if (_isProcessingTranscript || !mounted || !voice.nativeListening) return;
-    voice.markSilenceTimeout();
+    if (_isProcessingTranscript || !mounted || _isClosing) return;
+    if (!voice.hasTranscript) return;
+    if (voice.isStarting) {
+      _silenceTimer?.cancel();
+      _silenceTimer = Timer(const Duration(milliseconds: 250), () {
+        unawaited(_processFromSilence());
+      });
+      return;
+    }
+    voice.markSilenceTimeout(MikiezyScope.of(context).silentTimeoutSeconds);
     await _process();
   }
 
@@ -213,6 +294,8 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
     _isProcessingTranscript = true;
     _silenceTimer?.cancel();
     _silenceTimer = null;
+    _nativeRestartTimer?.cancel();
+    _nativeRestartTimer = null;
     final VoiceAssistantResult? result;
     try {
       result = await voice.stopAndProcess(
@@ -224,10 +307,21 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
     }
     if (!mounted) return;
     final parsedResult = result;
-    if (parsedResult == null) return;
+    if (parsedResult == null) {
+      final response = voice.latestCommandResponse;
+      if (response != null) {
+        await voice.speak(response.spokenText);
+        if (!mounted) return;
+        if (voice.isAwaitingClarification) {
+          voice.prepareForClarification();
+        }
+      }
+      return;
+    }
     unawaited(voice.speak(parsedResult.feedback));
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
+        settings: const RouteSettings(name: AppRouteNames.previewTransaction),
         builder: (_) =>
             PreviewTransactionScreen(initialDraft: parsedResult.draft),
       ),
@@ -238,6 +332,7 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
     if (_isClosing) return;
     _isClosing = true;
     _silenceTimer?.cancel();
+    _nativeRestartTimer?.cancel();
     await voice.cancelListening();
     if (mounted) Navigator.of(context).pop();
   }
@@ -248,6 +343,8 @@ class _VoiceEntryScreenState extends State<VoiceEntryScreen> {
       products: state.products,
       wallets: state.wallets,
       categories: state.categories,
+      productAliases: state.voiceProductAliases,
+      unitAliases: state.voiceUnitAliases,
       defaultWalletName: _defaultWalletName(state),
     );
   }
@@ -700,15 +797,20 @@ class _Waveform extends StatelessWidget {
 
   int _levelBoost() {
     if (level <= 0) return 0;
-    return (level.abs() * 0.18).round().clamp(0, 12);
+    return (level.abs() * 0.18).round().clamp(0, 12).toInt();
   }
 }
 
 class _TranscriptCard extends StatelessWidget {
-  const _TranscriptCard({required this.controller, required this.onChanged});
+  const _TranscriptCard({
+    required this.controller,
+    required this.onChanged,
+    required this.onClear,
+  });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -749,6 +851,17 @@ class _TranscriptCard extends StatelessWidget {
                   color: Color(0xFFA5B4FC),
                   fontSize: 10,
                   fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: 'Clear transcript',
+                onPressed: onClear,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(
+                  Icons.backspace_outlined,
+                  color: Colors.white54,
+                  size: 18,
                 ),
               ),
             ],
@@ -858,9 +971,17 @@ class _FeedbackCard extends StatelessWidget {
 }
 
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.state});
+  const _ErrorCard({
+    required this.state,
+    required this.message,
+    required this.permissionState,
+    required this.onOpenSettings,
+  });
 
   final VoiceAssistantPhase state;
+  final String message;
+  final MicrophonePermissionState permissionState;
+  final VoidCallback onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -871,12 +992,27 @@ class _ErrorCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.danger.withValues(alpha: 0.22)),
       ),
-      child: Text(
-        state == VoiceAssistantPhase.permissionDenied
-            ? 'Aktifkan izin mikrofon agar Miki bisa mendengar transaksi.'
-            : 'Suara kurang jelas. Coba ulangi dengan lebih pelan dan dekat ke mikrofon.',
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: Color(0xFFFCA5A5), height: 1.45),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            state == VoiceAssistantPhase.permissionDenied
+                ? message
+                : 'Suara kurang jelas. Coba ulangi dengan lebih pelan dan dekat ke mikrofon.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFFFCA5A5), height: 1.45),
+          ),
+          if (state == VoiceAssistantPhase.permissionDenied &&
+              permissionState.canOpenSettings) ...[
+            const SizedBox(height: 10),
+            TextButton.icon(
+              key: const ValueKey('open-microphone-settings'),
+              onPressed: onOpenSettings,
+              icon: const Icon(Icons.settings_rounded, size: 18),
+              label: const Text('Buka pengaturan aplikasi'),
+            ),
+          ],
+        ],
       ),
     );
   }

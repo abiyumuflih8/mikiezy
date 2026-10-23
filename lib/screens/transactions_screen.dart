@@ -5,15 +5,12 @@ import 'package:flutter/material.dart';
 import '../core/constants/app_dimensions.dart';
 import '../core/formatters.dart';
 import '../models/mikiezy_models.dart';
-import '../services/voice/voice_entry_launch_source.dart';
-import '../services/voice/voice_assistant_manager.dart';
 import '../shared/widgets/mikiezy_components.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/mikiezy_card.dart';
 import 'receipt_screen.dart';
-import 'voice_entry_screen.dart';
 
 enum TransactionPeriod { daily, weekly, monthly }
 
@@ -52,10 +49,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           title: en ? 'Transactions' : 'Transaksi',
           currentIndex: 1,
           showAppBar: false,
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => _openVoiceEntry(context),
-            child: const Icon(Icons.mic_rounded),
-          ),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
             children: [
@@ -104,22 +97,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         );
       },
     );
-  }
-
-  Future<void> _openVoiceEntry(BuildContext context) async {
-    final manager = VoiceAssistantScope.maybeOf(context);
-    await manager?.pauseForManualSession();
-    if (!context.mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const VoiceEntryScreen(
-          autoStart: true,
-          launchSource: VoiceEntryLaunchSource.manualTap,
-        ),
-      ),
-    );
-    if (!context.mounted) return;
-    await manager?.resumeAfterManualSession();
   }
 
   List<TransactionRecord> _filteredTransactions(
@@ -184,7 +161,15 @@ class _Header extends StatelessWidget {
           ),
           IconButton.filledTonal(
             tooltip: en ? 'Filter' : 'Filter',
-            onPressed: () {},
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  en
+                      ? 'Advanced filters are coming soon.'
+                      : 'Filter lanjutan segera hadir.',
+                ),
+              ),
+            ),
             icon: const Icon(Icons.filter_list_rounded, size: 18),
           ),
         ],
@@ -430,7 +415,7 @@ class _TransactionTile extends StatelessWidget {
         ? transaction.lines.first.productName
         : transaction.categoryName;
     final qty = transaction.lines.isNotEmpty
-        ? '${en ? 'Qty' : 'Jumlah'}: ${transaction.lines.first.quantity} - ${timeLabel(transaction.createdAt)}'
+        ? '${en ? 'Qty' : 'Jumlah'}: ${quantityLabel(transaction.lines.first.quantity)} - ${timeLabel(transaction.createdAt)}'
         : '${transaction.kind.label} - ${timeLabel(transaction.createdAt)}';
     return InkWell(
       onTap: () => Navigator.of(context).push(

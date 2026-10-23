@@ -1,4 +1,5 @@
 import '../models/mikiezy_models.dart';
+import 'voice/voice_unit_dictionary.dart';
 
 class VoiceTransactionParser {
   static const _numbers = <String, int>{
@@ -36,9 +37,9 @@ class VoiceTransactionParser {
     final product = kind == TransactionKind.sale
         ? _extractProduct(normalized)
         : category;
-    final quantity = kind == TransactionKind.sale
+    final double quantity = kind == TransactionKind.sale
         ? _extractQuantity(normalized)
-        : 1;
+        : 1.0;
 
     return TransactionDraft(
       kind: kind,
@@ -107,19 +108,30 @@ class VoiceTransactionParser {
   }
 
   SaleUnit _detectUnit(String text) {
-    if (_containsAny(text, ['karton', 'dus', 'box'])) return SaleUnit.carton;
-    if (_containsAny(text, ['pack', 'pak', 'lusin'])) return SaleUnit.pack;
+    for (final token in text.split(RegExp(r'\s+'))) {
+      final unit = VoiceUnitDictionary.canonicalUnit(token);
+      if (unit != null) {
+        return VoiceUnitDictionary.saleUnitFor(unit) ?? SaleUnit.pcs;
+      }
+    }
     return SaleUnit.pcs;
   }
 
-  int _extractQuantity(String text) {
+  double _extractQuantity(String text) {
     final digitMatch = RegExp(
-      r'\b(\d+)\s*(pcs|porsi|buah|pack|pak|karton|dus|box)?\b',
+      r'\b(\d+(?:[,.]\d+)?)\s*([a-z]+)?\b',
     ).firstMatch(text);
-    if (digitMatch != null) return int.tryParse(digitMatch.group(1) ?? '') ?? 1;
+    if (digitMatch != null) {
+      return double.tryParse(
+            (digitMatch.group(1) ?? '').replaceAll(',', '.'),
+          ) ??
+          1;
+    }
 
     for (final entry in _numbers.entries) {
-      if (RegExp('\\b${entry.key}\\b').hasMatch(text)) return entry.value;
+      if (RegExp('\\b${entry.key}\\b').hasMatch(text)) {
+        return entry.value.toDouble();
+      }
     }
     return 1;
   }

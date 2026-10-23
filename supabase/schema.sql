@@ -5,7 +5,17 @@ create extension if not exists pgcrypto;
 
 create type public.money_direction as enum ('income', 'expense');
 create type public.transaction_kind as enum ('sale', 'income', 'expense', 'adjustment');
-create type public.sale_unit as enum ('pcs', 'pack', 'carton');
+create type public.sale_unit as enum (
+  'pcs',
+  'pack',
+  'carton',
+  'bungkus',
+  'porsi',
+  'gelas',
+  'kilo',
+  'botol',
+  'buah'
+);
 create type public.price_segment as enum ('retail', 'wholesale');
 create type public.sync_status as enum ('local_only', 'queued', 'synced', 'conflict');
 
@@ -59,7 +69,7 @@ create table public.products (
   wholesale_price bigint not null default 0,
   pack_size integer not null default 12,
   carton_size integer not null default 48,
-  stock_pcs integer not null default 0,
+  stock_pcs numeric(18, 3) not null default 0,
   sync_version bigint not null default 1,
   deleted_at timestamptz,
   created_at timestamptz not null default now(),
@@ -94,8 +104,9 @@ create table public.transaction_lines (
   transaction_id uuid not null references public.transactions(id) on delete cascade,
   product_id uuid references public.products(id),
   product_name text not null,
-  quantity integer not null default 1,
+  quantity numeric(18, 3) not null default 1,
   unit public.sale_unit not null default 'pcs',
+  unit_multiplier integer not null default 1,
   unit_price bigint not null default 0,
   cost_price bigint not null default 0,
   segment public.price_segment not null default 'retail',

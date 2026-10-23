@@ -7,7 +7,6 @@ import 'package:mikiezy/screens/dashboard_screen.dart';
 import 'package:mikiezy/screens/preview_transaction_screen.dart';
 import 'package:mikiezy/screens/products_screen.dart';
 import 'package:mikiezy/screens/reports_screen.dart';
-import 'package:mikiezy/screens/voice_entry_screen.dart';
 
 void main() {
   testWidgets('First install flow opens onboarding and auth', (
@@ -55,10 +54,13 @@ void main() {
 
     expect(find.text('Toko Maju Jaya'), findsOneWidget);
     expect(find.text('PENJUALAN HARI INI'), findsOneWidget);
-    expect(find.byIcon(Icons.mic_rounded), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('global-voice-microphone')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('Manual mic opens the recording screen with auto start flow', (
+  testWidgets('Global mic opens the voice overlay in place', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -67,12 +69,12 @@ void main() {
         usePersistentStorage: false,
       ),
     );
-    await tester.tap(find.byIcon(Icons.mic_rounded));
+    await tester.tap(find.byKey(const ValueKey('global-voice-microphone')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.byType(VoiceEntryScreen), findsOneWidget);
-    expect(find.text('Back'), findsOneWidget);
+    expect(find.text('Percakapan'), findsOneWidget);
+    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
   });
 
   testWidgets('Settings language toggle switches labels', (
@@ -155,6 +157,28 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Mingguan'), findsOneWidget);
     expect(find.text('Bulanan'), findsOneWidget);
+  });
+
+  testWidgets('Analytics chart bars can be selected', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MikiezyApp(
+        initialHome: ReportsScreen(),
+        usePersistentStorage: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('analytics-chart-bar-0')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('analytics-chart-bar-0')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('analytics-chart-selected-summary')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Preview transaction resets product from new initial draft', (

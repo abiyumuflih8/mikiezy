@@ -97,4 +97,147 @@ void main() {
     ]);
     expect(result.draft.amount, 200000);
   });
+
+  test(
+    'voice assistant accumulates final and partial transcripts safely',
+    () async {
+      final controller = VoiceAssistantController();
+      addTearDown(controller.dispose);
+
+      controller.applySpeechTranscriptForTest(
+        'ayam bakar 10 bungkus 12000 nasi goreng 5 bungkus 13000',
+        isFinal: true,
+      );
+      controller.applySpeechTranscriptForTest(
+        'es teh 3 gelas 5000',
+        isFinal: false,
+      );
+
+      expect(controller.transcript, contains('ayam bakar'));
+      expect(controller.transcript, contains('nasi goreng'));
+      expect(controller.transcript, contains('es teh'));
+
+      final result = await controller.processCurrentTranscript(
+        parseContext: voiceContext,
+        speakResult: false,
+      );
+
+      expect(result, isNotNull);
+      expect(result!.draft.lines, hasLength(3));
+      expect(result.draft.lines.map((line) => line.productName), [
+        'Ayam Bakar',
+        'Nasi Goreng',
+        'Es Teh',
+      ]);
+    },
+  );
+
+  test(
+    'voice assistant commits partial transcript when speech status is done',
+    () async {
+      final controller = VoiceAssistantController();
+      addTearDown(controller.dispose);
+
+      const firstSegment =
+          'ayam bakar 10 bungkus 12000 nasi goreng 5 bungkus 13000';
+      const secondSegment = 'es teh 3 gelas 5000';
+      const expectedTranscript = '$firstSegment $secondSegment';
+
+      controller.applySpeechTranscriptForTest(firstSegment, isFinal: false);
+      controller.handleSpeechStatusForTest('done');
+      controller.applySpeechTranscriptForTest(secondSegment, isFinal: false);
+
+      expect(controller.finalTranscriptBuffer, firstSegment);
+      expect(controller.currentPartialTranscript, secondSegment);
+      expect(controller.combinedTranscript, expectedTranscript);
+      expect(controller.transcript, expectedTranscript);
+
+      final result = await controller.processCurrentTranscript(
+        parseContext: voiceContext,
+        speakResult: false,
+      );
+
+      expect(result, isNotNull);
+      expect(result!.transcript, expectedTranscript);
+      expect(result.draft.lines, hasLength(3));
+      expect(result.draft.lines.map((line) => line.productName), [
+        'Ayam Bakar',
+        'Nasi Goreng',
+        'Es Teh',
+      ]);
+    },
+  );
+
+  test(
+    'voice assistant keeps previous partial when engine sends isolated next partial',
+    () async {
+      final controller = VoiceAssistantController();
+      addTearDown(controller.dispose);
+
+      const firstSegment =
+          'ayam bakar 10 bungkus 12000 nasi goreng 5 bungkus 13000';
+      const secondSegment = 'es teh 3 gelas 5000';
+      const expectedTranscript = '$firstSegment $secondSegment';
+
+      controller.applySpeechTranscriptForTest(firstSegment, isFinal: false);
+      controller.applySpeechTranscriptForTest(secondSegment, isFinal: false);
+
+      expect(controller.finalTranscriptBuffer, firstSegment);
+      expect(controller.currentPartialTranscript, secondSegment);
+      expect(controller.transcript, expectedTranscript);
+
+      final result = await controller.processCurrentTranscript(
+        parseContext: voiceContext,
+        speakResult: false,
+      );
+
+      expect(result, isNotNull);
+      expect(result!.transcript, expectedTranscript);
+      expect(result.draft.lines, hasLength(3));
+      expect(result.draft.lines.map((line) => line.productName), [
+        'Ayam Bakar',
+        'Nasi Goreng',
+        'Es Teh',
+      ]);
+    },
+  );
+
+  test(
+    'voice assistant replaces changing partial transcript without duplicates',
+    () {
+      final controller = VoiceAssistantController();
+      addTearDown(controller.dispose);
+
+      controller.applySpeechTranscriptForTest('ayam', isFinal: false);
+      controller.applySpeechTranscriptForTest('ayam bakar', isFinal: false);
+      controller.applySpeechTranscriptForTest(
+        'ayam bakar 10 bungkus 12000',
+        isFinal: true,
+      );
+
+      expect(controller.transcript, 'ayam bakar 10 bungkus 12000');
+    },
+  );
+
+  test('voice assistant clears all transcript buffers explicitly', () {
+    final controller = VoiceAssistantController();
+    addTearDown(controller.dispose);
+
+    controller.applySpeechTranscriptForTest(
+      'ayam bakar 10 bungkus 12000',
+      isFinal: false,
+    );
+    controller.handleSpeechStatusForTest('notListening');
+    controller.applySpeechTranscriptForTest(
+      'es teh 3 gelas 5000',
+      isFinal: false,
+    );
+
+    controller.clearTranscript();
+
+    expect(controller.finalTranscriptBuffer, isEmpty);
+    expect(controller.currentPartialTranscript, isEmpty);
+    expect(controller.transcript, isEmpty);
+    expect(controller.combinedTranscript, isEmpty);
+  });
 }

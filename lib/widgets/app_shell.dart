@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../screens/voice_entry_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/reports_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/transactions_screen.dart';
 import '../core/constants/app_dimensions.dart';
 import '../models/mikiezy_models.dart';
-import '../services/voice/voice_entry_launch_source.dart';
 import '../services/voice/voice_assistant_manager.dart';
+import '../services/voice/voice_command.dart';
+import '../services/navigation/app_navigation_service.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -73,13 +73,8 @@ class _AppShellState extends State<AppShell> {
           : null,
       body: SafeArea(child: widget.child),
       floatingActionButton: widget.showDefaultFab
-          ? widget.floatingActionButton ??
-                FloatingActionButton.extended(
-                  onPressed: () => _openVoiceEntry(context),
-                  icon: const Icon(Icons.mic_rounded),
-                  label: const Text('Catat'),
-                )
-          : widget.floatingActionButton,
+          ? widget.floatingActionButton
+          : null,
       bottomNavigationBar: _MikiezyBottomNav(
         currentIndex: widget.currentIndex,
         onSelected: (index) => _goTo(context, index),
@@ -95,25 +90,18 @@ class _AppShellState extends State<AppShell> {
       const ReportsScreen(),
       const SettingsScreen(),
     ];
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => pages[index]));
-  }
-
-  Future<void> _openVoiceEntry(BuildContext context) async {
-    final manager = VoiceAssistantScope.maybeOf(context);
-    await manager?.pauseForManualSession();
-    if (!context.mounted) return;
-    await Navigator.of(context).push(
+    const targets = [
+      VoiceNavigationTarget.dashboard,
+      VoiceNavigationTarget.transactions,
+      VoiceNavigationTarget.analytics,
+      VoiceNavigationTarget.settings,
+    ];
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => const VoiceEntryScreen(
-          autoStart: true,
-          launchSource: VoiceEntryLaunchSource.manualTap,
-        ),
+        settings: RouteSettings(name: AppRouteNames.forTarget(targets[index])),
+        builder: (_) => pages[index],
       ),
     );
-    if (!context.mounted) return;
-    await manager?.resumeAfterManualSession();
   }
 }
 

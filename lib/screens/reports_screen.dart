@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../core/constants/app_dimensions.dart';
 import '../core/formatters.dart';
+import '../domain/models/business_query_result.dart';
+import '../domain/services/report_period_resolver.dart';
 import '../models/mikiezy_models.dart';
 import '../services/report_action_service.dart';
 import '../shared/widgets/mikiezy_components.dart';
@@ -23,6 +25,7 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   AnalyticsPeriod period = AnalyticsPeriod.weekly;
+  int? selectedChartIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +34,32 @@ class _ReportsScreenState extends State<ReportsScreen> {
       animation: state,
       builder: (context, _) {
         final en = state.language == AppLanguage.en;
-        final chartData = _chartData(state, period);
+        final chartData = _chartData(state, period, en: en);
+        final selectedIndex = _selectedIndex(chartData);
+        final now = DateTime.now();
+        final metricsPeriod = period == AnalyticsPeriod.weekly
+            ? ReportPeriodType.thisWeek
+            : ReportPeriodType.thisMonth;
+        final revenue = state.salesMetric(metricsPeriod, now: now);
+        final income = state.incomeMetric(metricsPeriod, now: now);
+        final expense = state.expenseMetric(metricsPeriod, now: now);
+        final profit = state.profitMetric(metricsPeriod, now: now);
+        final transactionCount = state.transactionCountMetric(
+          metricsPeriod,
+          now: now,
+        );
+        final topProducts = state
+            .topProductsMetric(metricsPeriod, now: now)
+            .items
+            .map((item) => _TopProduct(item.name, item.quantity ?? 0))
+            .toList(growable: false);
+        final expenseCategories = state.expenseByCategoryMetric(
+          metricsPeriod,
+          now: now,
+        );
+        final periodLabel = period == AnalyticsPeriod.weekly
+            ? (en ? 'This week' : 'Minggu ini')
+            : (en ? 'This month' : 'Bulan ini');
         return AppShell(
           title: en ? 'Analytics' : 'Analitik',
           currentIndex: 2,
@@ -49,7 +77,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
               _PeriodSelector(
                 period: period,
                 en: en,
-                onChanged: (value) => setState(() => period = value),
+                onChanged: (value) => setState(() {
+                  period = value;
+                  selectedChartIndex = null;
+                }),
               ),
               const SizedBox(height: AppSpacing.md),
               AnimatedSwitcher(
@@ -61,51 +92,71 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   period: period,
                   data: chartData,
                   total: chartData.fold(0, (sum, point) => sum + point.value),
+                  selectedIndex: selectedIndex,
+                  onPointSelected: (index) =>
+                      setState(() => selectedChartIndex = index),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
               _MetricWrap(
                 children: [
                   MetricTile(
-                    label: en ? 'Total Revenue' : 'Total pemasukan',
-                    value: compactRupiah(state.incomeTotal),
+                    label: en ? 'Sales Revenue' : 'Omzet penjualan',
+                    value: compactRupiah(revenue.moneyValue ?? 0),
                     icon: Icons.bar_chart_rounded,
                     color: AppColors.accent,
-                    subLabel: '+8.2%',
+                    subLabel: periodLabel,
                   ),
                   MetricTile(
                     label: en ? 'Transactions' : 'Transaksi',
-                    value: '${state.monthlyTransactions}',
+                    value: '${transactionCount.countValue ?? 0}',
                     icon: Icons.shopping_cart_outlined,
                     color: AppColors.success,
-                    subLabel: en ? 'This month' : 'Bulan ini',
+                    subLabel: periodLabel,
                   ),
                   MetricTile(
                     label: en ? 'Expenses' : 'Pengeluaran',
-                    value: compactRupiah(state.expenseTotal),
+                    value: compactRupiah(expense.moneyValue ?? 0),
                     icon: Icons.receipt_long_outlined,
                     color: AppColors.danger,
-                    subLabel: en ? 'Operational' : 'Operasional',
+                    subLabel: periodLabel,
                   ),
                   MetricTile(
                     label: en ? 'Net Profit' : 'Laba bersih',
-                    value: compactRupiah(state.grossProfit),
+                    value: compactRupiah(profit.moneyValue ?? 0),
                     icon: Icons.insights_rounded,
-                    color: state.grossProfit >= 0
+                    color: (profit.moneyValue ?? 0) >= 0
                         ? AppColors.success
                         : AppColors.danger,
-                    subLabel: en ? 'Estimated' : 'Estimasi',
+                    subLabel: profit.isEstimate
+                        ? (en ? 'Estimated' : 'Estimasi')
+                        : periodLabel,
                   ),
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              _TopProductsCard(state: state, en: en),
+              _TopProductsCard(products: topProducts, en: en),
               const SizedBox(height: AppSpacing.lg),
-              _ProfitLossCard(state: state, en: en),
+              _ProfitLossCard(
+                salesAndIncome:
+                    (revenue.moneyValue ?? 0) + (income.moneyValue ?? 0),
+                costOfGoods: profit.costValue ?? 0,
+                expense: expense.moneyValue ?? 0,
+                profit: profit.moneyValue ?? 0,
+                en: en,
+              ),
               const SizedBox(height: AppSpacing.lg),
-              _ExpenseCategoryCard(state: state, en: en),
+              _ExpenseCategoryCard(categories: expenseCategories, en: en),
               const SizedBox(height: AppSpacing.lg),
-              _AiInsightCard(en: en),
+              _AiInsightCard(
+                en: en,
+                periodLabel: periodLabel.toLowerCase(),
+                revenue: revenue.moneyValue ?? 0,
+                profit: profit.moneyValue ?? 0,
+                topProductName: topProducts.isEmpty
+                    ? null
+                    : topProducts.first.name,
+              ),
             ],
           ),
         );
@@ -113,26 +164,92 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  List<_ChartPoint> _chartData(MikiezyState state, AnalyticsPeriod period) {
+  int _selectedIndex(List<_ChartPoint> data) {
+    if (data.isEmpty) return 0;
+    final requested = selectedChartIndex;
+    if (requested != null && requested >= 0 && requested < data.length) {
+      return requested;
+    }
+
+    var peakIndex = 0;
+    for (var i = 1; i < data.length; i++) {
+      if (data[i].value >= data[peakIndex].value) {
+        peakIndex = i;
+      }
+    }
+    return peakIndex;
+  }
+
+  List<_ChartPoint> _chartData(
+    MikiezyState state,
+    AnalyticsPeriod period, {
+    required bool en,
+  }) {
     switch (period) {
       case AnalyticsPeriod.weekly:
-        return [
-          const _ChartPoint('Mon', 820000),
-          const _ChartPoint('Tue', 640000),
-          const _ChartPoint('Wed', 950000),
-          const _ChartPoint('Thu', 1100000),
-          const _ChartPoint('Fri', 1250000),
-          const _ChartPoint('Sat', 1480000),
-          _ChartPoint('Sun', math.max(1200000, state.salesToday)),
-        ];
+        final start = _startOfWeek(DateTime.now());
+        return List.generate(7, (index) {
+          final day = start.add(Duration(days: index));
+          final sales = _salesInRange(
+            state.transactions,
+            day,
+            day.add(const Duration(days: 1)),
+          );
+          return _ChartPoint(
+            _weekdayLabel(day, en: en),
+            _salesTotal(sales),
+            transactionCount: sales.length,
+          );
+        });
       case AnalyticsPeriod.monthly:
-        return [
-          const _ChartPoint('W1', 4200000),
-          const _ChartPoint('W2', 3800000),
-          const _ChartPoint('W3', 5100000),
-          _ChartPoint('W4', math.max(6200000, state.incomeTotal)),
-        ];
+        final now = DateTime.now();
+        final lastDay = DateTime(now.year, now.month + 1, 0).day;
+        return List.generate(4, (index) {
+          final startDay = index * 7 + 1;
+          final endDay = index == 3
+              ? lastDay + 1
+              : math.min(startDay + 7, lastDay + 1);
+          final start = DateTime(now.year, now.month, startDay);
+          final end = DateTime(now.year, now.month, endDay);
+          final sales = _salesInRange(state.transactions, start, end);
+          return _ChartPoint(
+            en ? 'W${index + 1}' : 'M${index + 1}',
+            _salesTotal(sales),
+            transactionCount: sales.length,
+          );
+        });
     }
+  }
+
+  DateTime _startOfWeek(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    return day.subtract(Duration(days: day.weekday - DateTime.monday));
+  }
+
+  List<TransactionRecord> _salesInRange(
+    List<TransactionRecord> transactions,
+    DateTime start,
+    DateTime end,
+  ) {
+    return transactions
+        .where(
+          (tx) =>
+              tx.kind == TransactionKind.sale &&
+              !tx.createdAt.isBefore(start) &&
+              tx.createdAt.isBefore(end),
+        )
+        .toList(growable: false);
+  }
+
+  int _salesTotal(List<TransactionRecord> transactions) {
+    return transactions.fold(0, (sum, tx) => sum + tx.amount);
+  }
+
+  String _weekdayLabel(DateTime date, {required bool en}) {
+    const english = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const indonesian = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+    final labels = en ? english : indonesian;
+    return labels[date.weekday - DateTime.monday];
   }
 }
 
@@ -168,15 +285,22 @@ class _ChartCard extends StatelessWidget {
     required this.period,
     required this.data,
     required this.total,
+    required this.selectedIndex,
+    required this.onPointSelected,
   });
 
   final bool en;
   final AnalyticsPeriod period;
   final List<_ChartPoint> data;
   final int total;
+  final int selectedIndex;
+  final ValueChanged<int> onPointSelected;
 
   @override
   Widget build(BuildContext context) {
+    if (data.isEmpty) return const SizedBox.shrink();
+    final safeSelectedIndex = selectedIndex.clamp(0, data.length - 1).toInt();
+    final selectedPoint = data[safeSelectedIndex];
     return MikiezyCard(
       radius: AppRadius.xl,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
@@ -214,9 +338,9 @@ class _ChartCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const MikiezyStatusPill(
-                label: '+12.4%',
-                icon: Icons.trending_up_rounded,
+              MikiezyStatusPill(
+                label: en ? 'Live data' : 'Data aktif',
+                icon: Icons.sync_rounded,
                 color: AppColors.success,
               ),
             ],
@@ -224,14 +348,68 @@ class _ChartCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           SizedBox(
             height: 184,
-            child: CustomPaint(
-              painter: _BarChartPainter(
-                data,
-                accent: context.colors.primary,
-                mutedBar: context.colors.primary.withValues(alpha: .18),
-                grid: context.subtleBorder,
+            child: Stack(
+              children: [
+                CustomPaint(
+                  painter: _BarChartPainter(
+                    data,
+                    selectedIndex: selectedIndex,
+                    accent: context.colors.primary,
+                    mutedBar: context.colors.primary.withValues(alpha: .18),
+                    grid: context.subtleBorder,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+                Positioned.fill(
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < data.length; i++)
+                        Expanded(
+                          child: GestureDetector(
+                            key: ValueKey('analytics-chart-bar-$i'),
+                            behavior: HitTestBehavior.translucent,
+                            onTap: () => onPointSelected(i),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Container(
+            key: const ValueKey('analytics-chart-selected-summary'),
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: context.colors.primaryContainer.withValues(alpha: .42),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(
+                color: context.colors.primary.withValues(alpha: .26),
               ),
-              child: const SizedBox.expand(),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.touch_app_rounded,
+                  size: 18,
+                  color: context.colors.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    en
+                        ? '${selectedPoint.label}: ${rupiah(selectedPoint.value)} - ${selectedPoint.transactionCount} transactions'
+                        : '${selectedPoint.label}: ${rupiah(selectedPoint.value)} - ${selectedPoint.transactionCount} transaksi',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: context.colors.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -247,8 +425,8 @@ class _ChartCard extends StatelessWidget {
             ),
             child: Text(
               en
-                  ? 'Miki highlights the strongest period so restocking decisions feel easier.'
-                  : 'Miki menandai periode terkuat agar keputusan stok lebih mudah.',
+                  ? 'Tap a bar to inspect sales for that period before deciding stock plans.'
+                  : 'Ketuk bar untuk melihat penjualan periode itu sebelum menentukan rencana stok.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: context.mutedText,
                 fontWeight: FontWeight.w600,
@@ -288,55 +466,46 @@ class _MetricWrap extends StatelessWidget {
 }
 
 class _TopProductsCard extends StatelessWidget {
-  const _TopProductsCard({required this.state, required this.en});
+  const _TopProductsCard({required this.products, required this.en});
 
-  final MikiezyState state;
+  final List<_TopProduct> products;
   final bool en;
 
   @override
   Widget build(BuildContext context) {
-    final products = _topProducts(state);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionTitle(text: en ? 'TOP PRODUCTS' : 'PRODUK TERLARIS'),
-        MikiezyCard(
-          radius: AppRadius.xl,
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (var i = 0; i < products.length; i++) ...[
-                _TopProductRow(item: products[i], rank: i + 1, en: en),
-                if (i < products.length - 1)
-                  const Divider(height: 1, color: AppColors.border),
+        if (products.isEmpty)
+          MikiezyEmptyState(
+            icon: Icons.inventory_2_outlined,
+            title: en ? 'No products sold yet' : 'Belum ada produk terjual',
+            message: en
+                ? 'Top products will appear after a sale is recorded.'
+                : 'Peringkat produk muncul setelah penjualan tercatat.',
+          )
+        else
+          MikiezyCard(
+            radius: AppRadius.xl,
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (var i = 0; i < products.length; i++) ...[
+                  _TopProductRow(
+                    item: products[i],
+                    rank: i + 1,
+                    maxSold: products.first.sold,
+                    en: en,
+                  ),
+                  if (i < products.length - 1)
+                    const Divider(height: 1, color: AppColors.border),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
       ],
     );
-  }
-
-  List<_TopProduct> _topProducts(MikiezyState state) {
-    final totals = <String, int>{};
-    for (final tx in state.transactions) {
-      for (final line in tx.lines) {
-        totals[line.productName] =
-            (totals[line.productName] ?? 0) + line.quantity;
-      }
-    }
-    final items =
-        totals.entries
-            .map((entry) => _TopProduct(entry.key, entry.value))
-            .toList()
-          ..sort((a, b) => b.sold.compareTo(a.sold));
-    if (items.length >= 4) return items.take(4).toList();
-    return [
-      ...items,
-      const _TopProduct('Kopi Susu Botol', 18),
-      const _TopProduct('Ayam Bakar', 14),
-      const _TopProduct('Mie Goreng', 9),
-    ].take(4).toList();
   }
 }
 
@@ -344,16 +513,18 @@ class _TopProductRow extends StatelessWidget {
   const _TopProductRow({
     required this.item,
     required this.rank,
+    required this.maxSold,
     required this.en,
   });
 
   final _TopProduct item;
   final int rank;
+  final double maxSold;
   final bool en;
 
   @override
   Widget build(BuildContext context) {
-    final pct = math.min(1.0, item.sold / 24);
+    final pct = maxSold <= 0 ? 0.0 : math.min(1.0, item.sold / maxSold);
     return Padding(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -399,7 +570,9 @@ class _TopProductRow extends StatelessWidget {
                 ),
               ),
               Text(
-                en ? '${item.sold} sold' : '${item.sold} terjual',
+                en
+                    ? '${quantityLabel(item.sold)} sold'
+                    : '${quantityLabel(item.sold)} terjual',
                 style: const TextStyle(fontWeight: FontWeight.w900),
               ),
             ],
@@ -421,14 +594,22 @@ class _TopProductRow extends StatelessWidget {
 }
 
 class _ProfitLossCard extends StatelessWidget {
-  const _ProfitLossCard({required this.state, required this.en});
+  const _ProfitLossCard({
+    required this.salesAndIncome,
+    required this.costOfGoods,
+    required this.expense,
+    required this.profit,
+    required this.en,
+  });
 
-  final MikiezyState state;
+  final int salesAndIncome;
+  final int costOfGoods;
+  final int expense;
+  final int profit;
   final bool en;
 
   @override
   Widget build(BuildContext context) {
-    final cost = _costOfGoods(state.transactions);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -439,26 +620,24 @@ class _ProfitLossCard extends StatelessWidget {
             children: [
               _ReportRow(
                 label: en ? 'Sales and income' : 'Penjualan dan pemasukan',
-                value: state.incomeTotal,
+                value: salesAndIncome,
                 color: AppColors.success,
               ),
               _ReportRow(
                 label: en ? 'Cost of goods sold' : 'Harga modal penjualan',
-                value: cost,
+                value: costOfGoods,
                 color: AppColors.warning,
               ),
               _ReportRow(
                 label: en ? 'Operational expense' : 'Pengeluaran operasional',
-                value: state.expenseTotal,
+                value: expense,
                 color: AppColors.danger,
               ),
               const Divider(height: 24),
               _ReportRow(
                 label: en ? 'Net profit/loss' : 'Laba/rugi bersih',
-                value: state.grossProfit,
-                color: state.grossProfit >= 0
-                    ? AppColors.success
-                    : AppColors.danger,
+                value: profit,
+                color: profit >= 0 ? AppColors.success : AppColors.danger,
                 strong: true,
               ),
             ],
@@ -467,30 +646,23 @@ class _ProfitLossCard extends StatelessWidget {
       ],
     );
   }
-
-  int _costOfGoods(List<TransactionRecord> transactions) {
-    return transactions
-        .where((tx) => tx.kind == TransactionKind.sale)
-        .fold(0, (sum, tx) => sum + tx.totalCost);
-  }
 }
 
 class _ExpenseCategoryCard extends StatelessWidget {
-  const _ExpenseCategoryCard({required this.state, required this.en});
+  const _ExpenseCategoryCard({required this.categories, required this.en});
 
-  final MikiezyState state;
+  final List<BusinessQueryItem> categories;
   final bool en;
 
   @override
   Widget build(BuildContext context) {
-    final categoryTotals = _expenseByCategory(state.transactions);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionTitle(
           text: en ? 'EXPENSE BY CATEGORY' : 'PENGELUARAN PER KATEGORI',
         ),
-        if (categoryTotals.isEmpty)
+        if (categories.isEmpty)
           MikiezyEmptyState(
             icon: Icons.receipt_long_outlined,
             title: en ? 'No expenses yet' : 'Belum ada pengeluaran',
@@ -499,8 +671,8 @@ class _ExpenseCategoryCard extends StatelessWidget {
                 : 'Insight pengeluaran akan muncul setelah biaya operasional dicatat.',
           )
         else
-          ...categoryTotals.entries.map(
-            (entry) => Padding(
+          ...categories.map(
+            (category) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: MikiezyCard(
                 radius: AppRadius.lg,
@@ -513,12 +685,12 @@ class _ExpenseCategoryCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        entry.key,
+                        category.name,
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
                     Text(
-                      rupiah(entry.value),
+                      rupiah(category.moneyValue ?? 0),
                       style: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                   ],
@@ -529,22 +701,22 @@ class _ExpenseCategoryCard extends StatelessWidget {
       ],
     );
   }
-
-  Map<String, int> _expenseByCategory(List<TransactionRecord> transactions) {
-    final totals = <String, int>{};
-    for (final tx in transactions.where(
-      (tx) => tx.kind == TransactionKind.expense,
-    )) {
-      totals[tx.categoryName] = (totals[tx.categoryName] ?? 0) + tx.amount;
-    }
-    return totals;
-  }
 }
 
 class _AiInsightCard extends StatelessWidget {
-  const _AiInsightCard({required this.en});
+  const _AiInsightCard({
+    required this.en,
+    required this.periodLabel,
+    required this.revenue,
+    required this.profit,
+    required this.topProductName,
+  });
 
   final bool en;
+  final String periodLabel;
+  final int revenue;
+  final int profit;
+  final String? topProductName;
 
   @override
   Widget build(BuildContext context) {
@@ -586,9 +758,7 @@ class _AiInsightCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            en
-                ? 'Sales increased this week, mainly driven by Nasi Goreng. Consider stocking more ingredients before the weekend.'
-                : 'Penjualan meningkat minggu ini, terutama dari Nasi Goreng. Pertimbangkan menambah stok bahan sebelum akhir pekan.',
+            _insightText(),
             style: const TextStyle(
               color: Colors.white,
               height: 1.55,
@@ -598,6 +768,23 @@ class _AiInsightCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _insightText() {
+    if (revenue == 0) {
+      return en
+          ? 'No sales have been recorded $periodLabel. Record a sale to generate a business summary.'
+          : 'Belum ada penjualan tercatat $periodLabel. Catat penjualan untuk menghasilkan ringkasan bisnis.';
+    }
+    final topProduct = topProductName;
+    final topSummary = topProduct == null
+        ? ''
+        : (en
+              ? ' The top-selling product is $topProduct.'
+              : ' Produk terlaris adalah $topProduct.');
+    return en
+        ? 'Sales revenue $periodLabel is ${rupiah(revenue)}, with net profit of ${rupiah(profit)}.$topSummary'
+        : 'Omzet $periodLabel adalah ${rupiah(revenue)}, dengan laba bersih ${rupiah(profit)}.$topSummary';
   }
 }
 
@@ -665,12 +852,14 @@ class _SectionTitle extends StatelessWidget {
 class _BarChartPainter extends CustomPainter {
   const _BarChartPainter(
     this.data, {
+    required this.selectedIndex,
     required this.accent,
     required this.mutedBar,
     required this.grid,
   });
 
   final List<_ChartPoint> data;
+  final int selectedIndex;
   final Color accent;
   final Color mutedBar;
   final Color grid;
@@ -686,7 +875,9 @@ class _BarChartPainter extends CustomPainter {
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     final bottom = size.height - 24;
     final chartHeight = bottom - 8;
-    final maxValue = data.map((p) => p.value).reduce(math.max).toDouble();
+    final maxValue = math
+        .max(1, data.map((p) => p.value).fold<int>(0, math.max))
+        .toDouble();
 
     for (var i = 0; i < 4; i++) {
       final y = 8 + (chartHeight / 3) * i;
@@ -696,8 +887,6 @@ class _BarChartPainter extends CustomPainter {
 
     final gap = data.length <= 4 ? 22.0 : 12.0;
     final barWidth = (size.width - gap * (data.length + 1)) / data.length;
-    final peak = data.map((p) => p.value).reduce(math.max);
-
     for (var i = 0; i < data.length; i++) {
       final point = data[i];
       final left = gap + i * (barWidth + gap);
@@ -711,7 +900,7 @@ class _BarChartPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: point.value == peak
+          colors: i == selectedIndex
               ? [accent, AppColors.teal]
               : [mutedBar.withValues(alpha: .92), mutedBar],
         ).createShader(rect.outerRect);
@@ -720,9 +909,9 @@ class _BarChartPainter extends CustomPainter {
       textPainter.text = TextSpan(
         text: point.label,
         style: TextStyle(
-          color: point.value == peak ? accent : AppColors.faint,
+          color: i == selectedIndex ? accent : AppColors.faint,
           fontSize: 10,
-          fontWeight: point.value == peak ? FontWeight.w900 : FontWeight.w700,
+          fontWeight: i == selectedIndex ? FontWeight.w900 : FontWeight.w700,
         ),
       );
       textPainter.layout(maxWidth: barWidth + 8);
@@ -736,6 +925,7 @@ class _BarChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BarChartPainter oldDelegate) {
     return oldDelegate.data != data ||
+        oldDelegate.selectedIndex != selectedIndex ||
         oldDelegate.accent != accent ||
         oldDelegate.mutedBar != mutedBar ||
         oldDelegate.grid != grid;
@@ -743,15 +933,16 @@ class _BarChartPainter extends CustomPainter {
 }
 
 class _ChartPoint {
-  const _ChartPoint(this.label, this.value);
+  const _ChartPoint(this.label, this.value, {this.transactionCount = 0});
 
   final String label;
   final int value;
+  final int transactionCount;
 }
 
 class _TopProduct {
   const _TopProduct(this.name, this.sold);
 
   final String name;
-  final int sold;
+  final double sold;
 }

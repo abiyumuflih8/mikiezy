@@ -15,16 +15,32 @@ class ReportActionService {
     final uri = Uri.parse(
       'https://wa.me/?text=${Uri.encodeComponent(message)}',
     );
+    var opened = false;
+    try {
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (error, stackTrace) {
+      debugPrint('Gagal membuka WhatsApp untuk laporan: $error\n$stackTrace');
+    }
+    if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened) {
-      await Clipboard.setData(ClipboardData(text: message));
+      var copied = false;
+      try {
+        await Clipboard.setData(ClipboardData(text: message));
+        copied = true;
+      } catch (error, stackTrace) {
+        debugPrint('Gagal menyalin laporan ke clipboard: $error\n$stackTrace');
+      }
       messenger.showSnackBar(
         SnackBar(
           content: Text(
             en
-                ? 'WhatsApp could not be opened. Report copied instead.'
-                : 'WhatsApp belum bisa dibuka. Laporan disalin sebagai gantinya.',
+                ? copied
+                      ? 'WhatsApp could not be opened. Report copied instead.'
+                      : 'WhatsApp and clipboard are not available on this device.'
+                : copied
+                ? 'WhatsApp belum bisa dibuka. Laporan disalin sebagai gantinya.'
+                : 'WhatsApp dan clipboard belum tersedia di perangkat ini.',
           ),
         ),
       );
@@ -37,7 +53,22 @@ class ReportActionService {
     bool en,
   ) async {
     final export = _exportBundle(state);
-    await Clipboard.setData(ClipboardData(text: export));
+    try {
+      await Clipboard.setData(ClipboardData(text: export));
+    } catch (error, stackTrace) {
+      debugPrint('Gagal menyalin export data: $error\n$stackTrace');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            en
+                ? 'CSV export could not be copied on this device.'
+                : 'Export CSV belum bisa disalin di perangkat ini.',
+          ),
+        ),
+      );
+      return;
+    }
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -86,7 +117,7 @@ class ReportActionService {
       ),
       '',
       'Products',
-      'id,name,category,cost_price,retail_price,wholesale_price,stock_pcs,pack_size,carton_size',
+      'id,name,category,cost_price,retail_price,wholesale_price,stock_quantity,track_stock,base_unit,min_stock,pack_size,carton_size',
       ...state.products.map(
         (product) => [
           product.id,
@@ -95,7 +126,10 @@ class ReportActionService {
           product.costPrice.toString(),
           product.retailPrice.toString(),
           product.wholesalePrice.toString(),
-          product.stockPcs.toString(),
+          quantityLabel(product.stockPcs),
+          product.trackStock.toString(),
+          product.baseUnit.name,
+          quantityLabel(product.minStock),
           product.packSize.toString(),
           product.cartonSize.toString(),
         ].map(_csv).join(','),

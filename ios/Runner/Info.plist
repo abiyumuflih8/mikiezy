@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Mikiezy memakai mikrofon untuk mencatat transaksi lewat suara.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Mikiezy menggunakan Face ID untuk membuka kunci aplikasi secara aman.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Mikiezy mengubah suara menjadi teks agar transaksi bisa diproses otomatis.</string>
 	<key>UIApplicationSceneManifest</key>

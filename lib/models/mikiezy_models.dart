@@ -4,11 +4,60 @@ enum TransactionKind { sale, income, expense, adjustment }
 
 enum SyncStatus { localOnly, queued, synced, conflict }
 
-enum SaleUnit { pcs, pack, carton, bungkus, porsi, gelas, kilo, botol, buah }
+enum SaleUnit {
+  pcs,
+  buah,
+  biji,
+  bungkus,
+  potong,
+  porsi,
+  gelas,
+  botol,
+  cup,
+  tusuk,
+  kotak,
+  sachet,
+  kilo,
+  gram,
+  ons,
+  liter,
+  ml,
+  meter,
+  centimeter,
+  carton,
+  pack,
+  renteng,
+  ikat,
+  ekor,
+  lembar,
+  plastik,
+  mangkok,
+  piring,
+}
 
 enum PriceSegment { retail, wholesale }
 
+enum TransactionDraftPriceSource {
+  manual,
+  spoken,
+  catalogRetail,
+  catalogWholesale,
+  catalogPack,
+  catalogCarton,
+  unavailable,
+}
+
+enum TransactionDraftProductStatus {
+  unresolved,
+  matched,
+  ambiguous,
+  notFound,
+  adHoc,
+}
+
 enum AppLanguage { id, en }
+
+enum ProductStockStatus { notTracked, outOfStock, low, safe }
 
 class Product {
   const Product({
@@ -21,6 +70,9 @@ class Product {
     required this.packSize,
     required this.cartonSize,
     required this.stockPcs,
+    this.trackStock = true,
+    this.baseUnit = SaleUnit.pcs,
+    this.minStock = 5,
   });
 
   final String id;
@@ -31,7 +83,10 @@ class Product {
   final int wholesalePrice;
   final int packSize;
   final int cartonSize;
-  final int stockPcs;
+  final double stockPcs;
+  final bool trackStock;
+  final SaleUnit baseUnit;
+  final double minStock;
 
   Product copyWith({
     String? id,
@@ -42,7 +97,10 @@ class Product {
     int? wholesalePrice,
     int? packSize,
     int? cartonSize,
-    int? stockPcs,
+    double? stockPcs,
+    bool? trackStock,
+    SaleUnit? baseUnit,
+    double? minStock,
   }) {
     return Product(
       id: id ?? this.id,
@@ -54,7 +112,19 @@ class Product {
       packSize: packSize ?? this.packSize,
       cartonSize: cartonSize ?? this.cartonSize,
       stockPcs: stockPcs ?? this.stockPcs,
+      trackStock: trackStock ?? this.trackStock,
+      baseUnit: baseUnit ?? this.baseUnit,
+      minStock: minStock ?? this.minStock,
     );
+  }
+}
+
+extension ProductStockStatusX on Product {
+  ProductStockStatus get stockStatus {
+    if (!trackStock) return ProductStockStatus.notTracked;
+    if (stockPcs <= 0) return ProductStockStatus.outOfStock;
+    if (stockPcs <= minStock) return ProductStockStatus.low;
+    return ProductStockStatus.safe;
   }
 }
 
@@ -104,35 +174,20 @@ class TransactionLine {
     required this.unitPrice,
     required this.costPrice,
     required this.segment,
+    this.unitMultiplier = 1,
   });
 
   final String productId;
   final String productName;
-  final int quantity;
+  final double quantity;
   final SaleUnit unit;
   final int unitPrice;
   final int costPrice;
   final PriceSegment segment;
+  final double unitMultiplier;
 
-  int get unitMultiplier {
-    switch (unit) {
-      case SaleUnit.pcs:
-      case SaleUnit.bungkus:
-      case SaleUnit.porsi:
-      case SaleUnit.gelas:
-      case SaleUnit.kilo:
-      case SaleUnit.botol:
-      case SaleUnit.buah:
-        return 1;
-      case SaleUnit.pack:
-        return 12;
-      case SaleUnit.carton:
-        return 48;
-    }
-  }
-
-  int get total => quantity * unitPrice;
-  int get estimatedCost => quantity * unitMultiplier * costPrice;
+  int get total => (quantity * unitPrice).round();
+  int get estimatedCost => (quantity * unitMultiplier * costPrice).round();
 }
 
 class TransactionDraftLine {
@@ -150,12 +205,15 @@ class TransactionDraftLine {
     this.note = '',
     this.warnings = const [],
     this.needsReview = false,
+    this.priceSource = TransactionDraftPriceSource.manual,
+    this.productStatus = TransactionDraftProductStatus.unresolved,
+    this.productCandidates = const [],
   });
 
   final String tempId;
   final String? productId;
   final String productName;
-  final int quantity;
+  final double quantity;
   final SaleUnit unit;
   final int unitPrice;
   final int discount;
@@ -165,15 +223,18 @@ class TransactionDraftLine {
   final String note;
   final List<String> warnings;
   final bool needsReview;
+  final TransactionDraftPriceSource priceSource;
+  final TransactionDraftProductStatus productStatus;
+  final List<String> productCandidates;
 
-  int get grossTotal => quantity * unitPrice;
-  int get lineTotal => (grossTotal - discount).clamp(0, 1 << 31);
+  int get grossTotal => (quantity * unitPrice).round();
+  int get lineTotal => (grossTotal - discount).clamp(0, 1 << 31).toInt();
 
   TransactionDraftLine copyWith({
     String? tempId,
     String? productId,
     String? productName,
-    int? quantity,
+    double? quantity,
     SaleUnit? unit,
     int? unitPrice,
     int? discount,
@@ -183,6 +244,9 @@ class TransactionDraftLine {
     String? note,
     List<String>? warnings,
     bool? needsReview,
+    TransactionDraftPriceSource? priceSource,
+    TransactionDraftProductStatus? productStatus,
+    List<String>? productCandidates,
   }) {
     return TransactionDraftLine(
       tempId: tempId ?? this.tempId,
@@ -198,6 +262,9 @@ class TransactionDraftLine {
       note: note ?? this.note,
       warnings: warnings ?? this.warnings,
       needsReview: needsReview ?? this.needsReview,
+      priceSource: priceSource ?? this.priceSource,
+      productStatus: productStatus ?? this.productStatus,
+      productCandidates: productCandidates ?? this.productCandidates,
     );
   }
 }
@@ -299,7 +366,7 @@ class TransactionDraft {
 
   final TransactionKind kind;
   final String productName;
-  final int quantity;
+  final double quantity;
   final SaleUnit unit;
   final int unitPrice;
   final int discount;
@@ -338,17 +405,17 @@ class TransactionDraft {
       final value = kind == TransactionKind.sale
           ? lineSubtotal - discount
           : lineSubtotal;
-      return value.clamp(0, 1 << 31);
+      return value.clamp(0, 1 << 31).toInt();
     }
     return kind == TransactionKind.sale
-        ? (quantity * unitPrice - discount).clamp(0, 1 << 31)
+        ? (quantity * unitPrice - discount).round().clamp(0, 1 << 31).toInt()
         : unitPrice;
   }
 
   TransactionDraft copyWith({
     TransactionKind? kind,
     String? productName,
-    int? quantity,
+    double? quantity,
     SaleUnit? unit,
     int? unitPrice,
     int? discount,
@@ -380,6 +447,114 @@ class TransactionDraft {
   }
 }
 
+class VoiceProductAlias {
+  const VoiceProductAlias({
+    required this.id,
+    required this.aliasText,
+    required this.normalizedAlias,
+    this.productId,
+    required this.canonicalProductName,
+    this.hitCount = 1,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String aliasText;
+  final String normalizedAlias;
+  final String? productId;
+  final String canonicalProductName;
+  final int hitCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  VoiceProductAlias copyWith({
+    String? id,
+    String? aliasText,
+    String? normalizedAlias,
+    String? productId,
+    String? canonicalProductName,
+    int? hitCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return VoiceProductAlias(
+      id: id ?? this.id,
+      aliasText: aliasText ?? this.aliasText,
+      normalizedAlias: normalizedAlias ?? this.normalizedAlias,
+      productId: productId ?? this.productId,
+      canonicalProductName: canonicalProductName ?? this.canonicalProductName,
+      hitCount: hitCount ?? this.hitCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
+class VoiceUnitAlias {
+  const VoiceUnitAlias({
+    required this.id,
+    required this.aliasText,
+    required this.normalizedAlias,
+    required this.canonicalUnit,
+    this.hitCount = 1,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String aliasText;
+  final String normalizedAlias;
+  final String canonicalUnit;
+  final int hitCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  VoiceUnitAlias copyWith({
+    String? id,
+    String? aliasText,
+    String? normalizedAlias,
+    String? canonicalUnit,
+    int? hitCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return VoiceUnitAlias(
+      id: id ?? this.id,
+      aliasText: aliasText ?? this.aliasText,
+      normalizedAlias: normalizedAlias ?? this.normalizedAlias,
+      canonicalUnit: canonicalUnit ?? this.canonicalUnit,
+      hitCount: hitCount ?? this.hitCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
+class VoiceCorrection {
+  const VoiceCorrection({
+    required this.id,
+    required this.rawText,
+    this.parsedProductName,
+    required this.correctedProductName,
+    this.parsedUnit,
+    required this.correctedUnit,
+    this.parsedQuantity,
+    required this.correctedQuantity,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String rawText;
+  final String? parsedProductName;
+  final String correctedProductName;
+  final String? parsedUnit;
+  final String correctedUnit;
+  final double? parsedQuantity;
+  final double correctedQuantity;
+  final DateTime createdAt;
+}
+
 extension TransactionKindLabel on TransactionKind {
   String get label {
     switch (this) {
@@ -400,22 +575,60 @@ extension SaleUnitLabel on SaleUnit {
     switch (this) {
       case SaleUnit.pcs:
         return 'pcs';
-      case SaleUnit.pack:
-        return 'pack';
-      case SaleUnit.carton:
-        return 'karton';
+      case SaleUnit.buah:
+        return 'buah';
+      case SaleUnit.biji:
+        return 'biji';
       case SaleUnit.bungkus:
         return 'bungkus';
+      case SaleUnit.potong:
+        return 'potong';
       case SaleUnit.porsi:
         return 'porsi';
       case SaleUnit.gelas:
         return 'gelas';
-      case SaleUnit.kilo:
-        return 'kilo';
       case SaleUnit.botol:
         return 'botol';
-      case SaleUnit.buah:
-        return 'buah';
+      case SaleUnit.cup:
+        return 'cup';
+      case SaleUnit.tusuk:
+        return 'tusuk';
+      case SaleUnit.kotak:
+        return 'kotak';
+      case SaleUnit.sachet:
+        return 'sachet';
+      case SaleUnit.kilo:
+        return 'kilo';
+      case SaleUnit.gram:
+        return 'gram';
+      case SaleUnit.ons:
+        return 'ons';
+      case SaleUnit.liter:
+        return 'liter';
+      case SaleUnit.ml:
+        return 'ml';
+      case SaleUnit.meter:
+        return 'meter';
+      case SaleUnit.centimeter:
+        return 'cm';
+      case SaleUnit.carton:
+        return 'karton';
+      case SaleUnit.pack:
+        return 'pack';
+      case SaleUnit.renteng:
+        return 'renteng';
+      case SaleUnit.ikat:
+        return 'ikat';
+      case SaleUnit.ekor:
+        return 'ekor';
+      case SaleUnit.lembar:
+        return 'lembar';
+      case SaleUnit.plastik:
+        return 'plastik';
+      case SaleUnit.mangkok:
+        return 'mangkok';
+      case SaleUnit.piring:
+        return 'piring';
     }
   }
 }
@@ -427,6 +640,43 @@ extension PriceSegmentLabel on PriceSegment {
         return 'Retail/warung';
       case PriceSegment.wholesale:
         return 'Grosir';
+    }
+  }
+}
+
+extension TransactionDraftPriceSourceLabel on TransactionDraftPriceSource {
+  String get label {
+    switch (this) {
+      case TransactionDraftPriceSource.manual:
+        return 'Harga manual';
+      case TransactionDraftPriceSource.spoken:
+        return 'Harga dari ucapan';
+      case TransactionDraftPriceSource.catalogRetail:
+        return 'Harga dari katalog';
+      case TransactionDraftPriceSource.catalogWholesale:
+        return 'Harga grosir';
+      case TransactionDraftPriceSource.catalogPack:
+        return 'Harga pack';
+      case TransactionDraftPriceSource.catalogCarton:
+        return 'Harga karton';
+      case TransactionDraftPriceSource.unavailable:
+        return 'Harga belum tersedia';
+    }
+  }
+}
+
+extension TransactionDraftProductStatusLabel on TransactionDraftProductStatus {
+  String? get warningLabel {
+    switch (this) {
+      case TransactionDraftProductStatus.ambiguous:
+        return 'Perlu pilih produk';
+      case TransactionDraftProductStatus.notFound:
+        return 'Produk belum ditemukan';
+      case TransactionDraftProductStatus.adHoc:
+        return 'Produk belum terhubung';
+      case TransactionDraftProductStatus.unresolved:
+      case TransactionDraftProductStatus.matched:
+        return null;
     }
   }
 }

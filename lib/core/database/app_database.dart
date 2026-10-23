@@ -33,7 +33,10 @@ class Products extends Table {
   IntColumn get wholesalePrice => integer().withDefault(const Constant(0))();
   IntColumn get packSize => integer().withDefault(const Constant(1))();
   IntColumn get cartonSize => integer().withDefault(const Constant(1))();
-  IntColumn get stockPcs => integer().withDefault(const Constant(0))();
+  RealColumn get stockPcs => real().withDefault(const Constant(0.0))();
+  BoolColumn get trackStock => boolean().withDefault(const Constant(true))();
+  TextColumn get baseUnit => text().withDefault(const Constant('pcs'))();
+  RealColumn get minStock => real().withDefault(const Constant(5.0))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get deletedAt => dateTime().nullable()();
@@ -109,12 +112,12 @@ class TransactionLines extends Table {
   TextColumn get productId => text().nullable().references(Products, #id)();
   TextColumn get productNameSnapshot => text()();
   IntColumn get position => integer().withDefault(const Constant(0))();
-  IntColumn get quantity => integer().withDefault(const Constant(1))();
+  RealColumn get quantity => real().withDefault(const Constant(1.0))();
   TextColumn get unit => text()();
   IntColumn get unitPrice => integer().withDefault(const Constant(0))();
   IntColumn get costPrice => integer().withDefault(const Constant(0))();
   TextColumn get segment => text()();
-  IntColumn get unitMultiplier => integer().withDefault(const Constant(1))();
+  RealColumn get unitMultiplier => real().withDefault(const Constant(1.0))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
@@ -148,6 +151,91 @@ class AppSettings extends Table {
   Set<Column<Object>> get primaryKey => {key};
 }
 
+@DataClassName('VoiceProductAliasRow')
+class VoiceProductAliases extends Table {
+  TextColumn get id => text()();
+  TextColumn get aliasText => text()();
+  TextColumn get normalizedAlias => text()();
+  TextColumn get productId => text().nullable().references(Products, #id)();
+  TextColumn get canonicalProductName => text()();
+  IntColumn get hitCount => integer().withDefault(const Constant(1))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {normalizedAlias},
+  ];
+}
+
+@DataClassName('VoiceUnitAliasRow')
+class VoiceUnitAliases extends Table {
+  TextColumn get id => text()();
+  TextColumn get aliasText => text()();
+  TextColumn get normalizedAlias => text()();
+  TextColumn get canonicalUnit => text()();
+  IntColumn get hitCount => integer().withDefault(const Constant(1))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {normalizedAlias},
+  ];
+}
+
+@DataClassName('VoiceCorrectionRow')
+class VoiceCorrections extends Table {
+  TextColumn get id => text()();
+  TextColumn get rawText => text()();
+  TextColumn get parsedProductName => text().nullable()();
+  TextColumn get correctedProductName => text()();
+  TextColumn get parsedUnit => text().nullable()();
+  TextColumn get correctedUnit => text()();
+  RealColumn get parsedQuantity => real().nullable()();
+  RealColumn get correctedQuantity => real()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+@DataClassName('VoiceActionAuditRow')
+class VoiceActionAudits extends Table {
+  TextColumn get id => text()();
+  TextColumn get actionId => text()();
+  TextColumn get actionType => text()();
+  TextColumn get source => text()();
+  TextColumn get status => text()();
+  TextColumn get targetEntityType => text().nullable()();
+  TextColumn get targetEntityId => text().nullable()();
+  TextColumn get beforeSummary => text().withDefault(const Constant(''))();
+  TextColumn get afterSummary => text().withDefault(const Constant(''))();
+  BoolColumn get confirmed => boolean().withDefault(const Constant(false))();
+  BoolColumn get authRequired =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get authSucceeded =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get errorCode => text().nullable()();
+  TextColumn get undoStatus => text().withDefault(const Constant('notAvailable'))();
+  TextColumn get commandFingerprint => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {actionId, status},
+  ];
+}
+
 @DriftDatabase(
   tables: [
     ProductCategories,
@@ -158,6 +246,10 @@ class AppSettings extends Table {
     TransactionLines,
     BusinessProfiles,
     AppSettings,
+    VoiceProductAliases,
+    VoiceUnitAliases,
+    VoiceCorrections,
+    VoiceActionAudits,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -165,21 +257,53 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (migrator) => migrator.createAll(),
     onUpgrade: (migrator, from, to) async {
       if (from < 2) {
-        await migrator.createTable(productCategories);
-        await migrator.createTable(products);
-        await migrator.createTable(wallets);
-        await migrator.createTable(transactionCategories);
-        await migrator.createTable(transactions);
-        await migrator.createTable(transactionLines);
-        await migrator.createTable(businessProfiles);
-        await migrator.createTable(appSettings);
+        await migrator.createAll();
+        return;
+      }
+      if (from < 3) {
+        await migrator.alterTable(
+          TableMigration(
+            products,
+            newColumns: [
+              products.trackStock,
+              products.baseUnit,
+              products.minStock,
+            ],
+          ),
+        );
+        await migrator.alterTable(TableMigration(transactionLines));
+      }
+      if (from < 4) {
+        await migrator.createTable(voiceProductAliases);
+        await migrator.createTable(voiceUnitAliases);
+        await migrator.createTable(voiceCorrections);
+      }
+      if (from >= 3 && from < 5) {
+        await migrator.addColumn(products, products.trackStock);
+        await migrator.addColumn(products, products.baseUnit);
+        await migrator.addColumn(products, products.minStock);
+      }
+      if (from < 5) {
+        // Preserve the old behavior: positive stock was controlled, while zero
+        // stock was treated as an unlimited/untracked catalog item.
+        await customStatement(
+          'UPDATE products '
+          'SET track_stock = CASE WHEN stock_pcs > 0 THEN 1 ELSE 0 END, '
+          "base_unit = 'pcs', min_stock = 5",
+        );
+      }
+      if (from >= 3 && from < 6) {
+        await migrator.alterTable(TableMigration(transactionLines));
+      }
+      if (from < 6) {
+        await migrator.createTable(voiceActionAudits);
       }
     },
   );
