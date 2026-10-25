@@ -25,3 +25,17 @@
 - PROPOSED: Untuk perubahan schema yang kelak disetujui, tambahkan migration tests dan uji salinan DB pengguna dengan backup; jangan destructive fallback.
 - VERIFIED: README dan laporan lama mengandung snapshot konteks yang tertinggal; source adalah rujukan runtime utama, bukan alasan mengubah laporan historis.
 - REPORTED: Selesaikan hanya tahap yang diminta; M1 tidak mengotorisasi M2, instalasi Antigravity, commit, atau push.
+
+## Aturan Kontinuitas & Konteks Jangka Panjang
+
+- REPORTED: **READ PROJECT STATE BEFORE MAJOR WORK**: Untuk perubahan besar, fitur baru, refactor, migrasi, perubahan skema database, atau keputusan arsitektur, baca `docs/PROJECT_STATE.md` terlebih dahulu sebagai kebenaran operasional kanonikal.
+- REPORTED: **REUSE BEFORE REBUILD**: Selalu periksa dan manfaatkan arsitektur, state, service, komponen UI, dan utility existing sebelum membuat fungsi atau abstractions baru.
+- REPORTED: **VERIFY EXISTING FEATURES BEFORE IMPLEMENTING**: Pastikan status fitur pada `docs/FEATURE_INVENTORY.md` dan `docs/PROJECT_STATE.md` sebelum mengasumsikan suatu kapabilitas belum ada.
+- REPORTED: **NEVER ASSUME MISSING CONTEXT MEANS MISSING CODE**: Ketiadaan konteks dalam sesi aktif bukan bukti ketiadaan kode pada codebase; lakukan pencarian selektif sebelum menyimpulkan.
+- REPORTED: **DISTINGUISH VERIFIED, REPORTED, NOT TESTED, AND UNVERIFIED**: Gunakan penandaan epistemik yang ketat. Jangan menyamakan pengujian otomatis, build lokal, atau inspeksi statis dengan pengujian perangkat fisik.
+- REPORTED: **AVOID UNNECESSARY REPEATED TESTS**: Hindari menjalankan ulang test suite penuh atau build tanpa alasan diagnostik terarah atau perubahan kode yang relevan.
+- REPORTED: **PRESERVE EXISTING ARCHITECTURE AND DATA**: Pertahankan custom notifier/InheritedNotifier, skema database Drift v6, dan sifat offline-first aplikasi.
+- REPORTED: **PROTECT PRIVATE DATA AND CREDENTIALS**: Jaga kerahasiaan PIN, hash verifier, path personal, rekaman suara, dan data transaksi bisnis lokal.
+- REPORTED: **DO NOT COMMIT, PUSH, DEPLOY, OR DELETE WITHOUT APPROVAL**: Seluruh mutasi Git, instalasi ke perangkat, penghapusan file, dan modifikasi dependency wajib mendapatkan otorisasi eksplisit pemilik.
+- REPORTED: **PRIORITIZE REAL USER-VISIBLE PROGRESS**: Utamakan kemajuan fungsional nyata yang dapat diverifikasi dibandingkan over-engineering atau refactor kosmetik.
+- REPORTED: **PROGRESSIVE DISCLOSURE ACTIVATION**: Terapkan pembacaan dokumen berlapis. Untuk tugas kecil atau pertanyaan spesifik, selesaikan secara terarah tanpa memuat ulang seluruh arsip dokumentasi.
