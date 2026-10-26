@@ -54,7 +54,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _backToOnboarding() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      MaterialPageRoute(
+        settings: const RouteSettings(name: AppRouteNames.onboarding),
+        builder: (_) => const OnboardingScreen(),
+      ),
     );
   }
 

@@ -13,6 +13,8 @@ import 'screens/products_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/onboarding_screen.dart';
+import 'screens/auth_screen.dart';
 import 'screens/transactions_screen.dart';
 import 'services/navigation/app_navigation_service.dart';
 import 'services/security/app_lock_controller.dart';
@@ -179,6 +181,33 @@ class _MikiezyAppState extends State<MikiezyApp> with WidgetsBindingObserver {
     voiceAssistant.setAppForeground(isForeground);
   }
 
+  String _resolveInitialRouteName(Widget? home) {
+    return switch (home) {
+      DashboardScreen() => AppRouteNames.forTarget(
+        VoiceNavigationTarget.dashboard,
+      ),
+      TransactionsScreen() => AppRouteNames.forTarget(
+        VoiceNavigationTarget.transactions,
+      ),
+      ProductsScreen() => AppRouteNames.forTarget(
+        VoiceNavigationTarget.products,
+      ),
+      ReportsScreen() => AppRouteNames.forTarget(VoiceNavigationTarget.reports),
+      FinanceScreen() => AppRouteNames.forTarget(VoiceNavigationTarget.wallets),
+      SettingsScreen() => AppRouteNames.forTarget(
+        VoiceNavigationTarget.settings,
+      ),
+      EditProfileScreen() => AppRouteNames.forTarget(
+        VoiceNavigationTarget.editProfile,
+      ),
+      PreviewTransactionScreen() => AppRouteNames.previewTransaction,
+      OnboardingScreen() => AppRouteNames.onboarding,
+      AuthScreen() => AppRouteNames.auth,
+      SplashScreen() || null => AppRouteNames.splash,
+      _ => 'unidentified',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return MikiezyScope(
@@ -205,6 +234,10 @@ class _MikiezyAppState extends State<MikiezyApp> with WidgetsBindingObserver {
                   controller: appLockController,
                   child: VoiceOverlayHost(
                     controller: globalVoiceController,
+                    navigationObserver: navigationService.observer,
+                    initialRouteName: _resolveInitialRouteName(
+                      widget.initialHome,
+                    ),
                     child: child ?? const SizedBox.shrink(),
                   ),
                 ),

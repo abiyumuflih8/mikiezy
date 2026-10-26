@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'onboarding_screen.dart';
+import '../services/navigation/app_navigation_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -30,7 +31,10 @@ class _SplashScreenState extends State<SplashScreen> {
   void _goToOnboarding() {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      MaterialPageRoute(
+        settings: const RouteSettings(name: AppRouteNames.onboarding),
+        builder: (_) => const OnboardingScreen(),
+      ),
     );
   }
 

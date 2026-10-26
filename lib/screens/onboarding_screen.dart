@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'auth_screen.dart';
+import '../services/navigation/app_navigation_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -44,7 +45,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _goToAuth([AuthMode mode = AuthMode.login]) {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => AuthScreen(initialMode: mode)),
+      MaterialPageRoute(
+        settings: const RouteSettings(name: AppRouteNames.auth),
+        builder: (_) => AuthScreen(initialMode: mode),
+      ),
     );
   }
 

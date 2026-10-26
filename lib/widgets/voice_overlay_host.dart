@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../services/navigation/app_navigation_service.dart';
 import '../services/voice/global_voice_controller.dart';
 import '../theme/app_theme.dart';
 
@@ -10,17 +11,38 @@ class VoiceOverlayHost extends StatelessWidget {
     super.key,
     required this.controller,
     required this.child,
+    this.navigationObserver,
+    this.initialRouteName,
   });
 
   final GlobalVoiceController controller;
   final Widget child;
+  final AppNavigationObserver? navigationObserver;
+  final String? initialRouteName;
 
   @override
   Widget build(BuildContext context) {
+    final observer =
+        navigationObserver ?? AppNavigationScope.maybeOf(context)?.observer;
+    final listenable = observer != null
+        ? Listenable.merge([controller, observer])
+        : controller;
+
     return AnimatedBuilder(
-      animation: controller,
+      animation: listenable,
       child: child,
       builder: (context, navigator) {
+        final rawTopName = observer?.topRouteName;
+        final currentRouteName =
+            (rawTopName != null && rawTopName != '/')
+                ? rawTopName
+                : initialRouteName;
+        final isAllowed = AppRouteNames.isVoiceOverlayAllowed(currentRouteName);
+
+        if (!isAllowed) {
+          return navigator!;
+        }
+
         final keyboardBottom = MediaQuery.viewInsetsOf(context).bottom;
         final bottom = keyboardBottom > 0 ? keyboardBottom + 12 : 92.0;
         return Stack(

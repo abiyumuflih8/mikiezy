@@ -9,40 +9,66 @@ import 'package:mikiezy/screens/products_screen.dart';
 import 'package:mikiezy/screens/reports_screen.dart';
 
 void main() {
-  testWidgets('First install flow opens onboarding and auth', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(const MikiezyApp(usePersistentStorage: false));
+  testWidgets(
+    'First install flow opens onboarding and auth without leaking voice FAB',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(const MikiezyApp(usePersistentStorage: false));
 
-    expect(find.text('Mikiezy'), findsOneWidget);
+      expect(find.text('Mikiezy'), findsOneWidget);
+      // FAB must not appear on splash
+      expect(
+        find.byKey(const ValueKey('global-voice-microphone')),
+        findsNothing,
+      );
 
-    await tester.pump(const Duration(milliseconds: 1500));
-    await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Record sales using\nyour voice'), findsOneWidget);
+      expect(find.text('Record sales using\nyour voice'), findsOneWidget);
+      // FAB must not appear on onboarding
+      expect(
+        find.byKey(const ValueKey('global-voice-microphone')),
+        findsNothing,
+      );
 
-    await tester.tap(find.text('Skip'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Sign In'), findsWidgets);
-    expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.text('Sign In'), findsWidgets);
+      expect(find.text('Welcome back'), findsOneWidget);
+      // FAB must not appear on login
+      expect(
+        find.byKey(const ValueKey('global-voice-microphone')),
+        findsNothing,
+      );
 
-    await tester.tap(find.text('Register').first);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Register').first);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Create your account'), findsOneWidget);
-    expect(find.text('BUSINESS NAME'), findsOneWidget);
+      expect(find.text('Create your account'), findsOneWidget);
+      expect(find.text('BUSINESS NAME'), findsOneWidget);
+      // FAB must not appear on register
+      expect(
+        find.byKey(const ValueKey('global-voice-microphone')),
+        findsNothing,
+      );
 
-    await Scrollable.ensureVisible(
-      tester.element(find.text('Create Account')),
-      alignment: 0.72,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Create Account'));
-    await tester.pumpAndSettle();
+      await Scrollable.ensureVisible(
+        tester.element(find.text('Create Account')),
+        alignment: 0.72,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Create Account'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Toko Maju Jaya'), findsOneWidget);
-  });
+      expect(find.text('Toko Maju Jaya'), findsOneWidget);
+      // FAB appears on dashboard after entering app
+      expect(
+        find.byKey(const ValueKey('global-voice-microphone')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('Mikiezy dashboard renders', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -275,6 +301,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Rp 139.000'), findsOneWidget);
   });
+
+  testWidgets(
+    'Global microphone overlay hides on sensitive routes and does not duplicate on back navigation',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MikiezyApp(
+          initialHome: DashboardScreen(),
+          usePersistentStorage: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Dashboard shows the FAB exactly once
+      expect(
+        find.byKey(const ValueKey('global-voice-microphone')),
+        findsOneWidget,
+      );
+
+      // Navigate to sensitive transaction preview route via Quick Action Tambah
+      await tester.tap(find.text('Tambah'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PreviewTransactionScreen), findsOneWidget);
+      // FAB must not leak into sensitive preview route
+      expect(
+        find.byKey(const ValueKey('global-voice-microphone')),
+        findsNothing,
+      );
+
+      // Pop back to dashboard
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      // Back on dashboard, FAB returns and is not duplicated
+      expect(find.text('PENJUALAN HARI INI'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('global-voice-microphone')),
+        findsOneWidget,
+      );
+    },
+  );
 }
 
 TransactionDraft _previewDraft(String productName, int unitPrice) {

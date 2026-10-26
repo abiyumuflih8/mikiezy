@@ -10,6 +10,9 @@ typedef VoiceNavigationPageBuilder =
     Widget? Function(VoiceNavigationTarget target);
 
 abstract final class AppRouteNames {
+  static const splash = 'splash';
+  static const onboarding = 'onboarding';
+  static const auth = 'auth';
   static const previewTransaction = 'preview-transaction';
   static const voiceEntry = 'voice-entry';
 
@@ -32,6 +35,22 @@ abstract final class AppRouteNames {
       VoiceNavigationTarget.categories => VoiceNavigationTarget.wallets,
       _ => target,
     };
+  }
+
+  static final Set<String> voiceOverlayAllowedRoutes = {
+    forTarget(VoiceNavigationTarget.dashboard),
+    forTarget(VoiceNavigationTarget.transactions),
+    forTarget(VoiceNavigationTarget.products),
+    forTarget(VoiceNavigationTarget.reports),
+    forTarget(VoiceNavigationTarget.analytics),
+    forTarget(VoiceNavigationTarget.wallets),
+    forTarget(VoiceNavigationTarget.categories),
+    forTarget(VoiceNavigationTarget.settings),
+  };
+
+  static bool isVoiceOverlayAllowed(String? routeName) {
+    if (routeName == null) return false;
+    return voiceOverlayAllowedRoutes.contains(routeName);
   }
 }
 
@@ -180,22 +199,30 @@ class AppNavigationObserver extends NavigatorObserver with ChangeNotifier {
   String? get topRouteName =>
       _routes.isEmpty ? null : _routes.last.settings.name;
 
+  void _safeNotify() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (hasListeners) {
+        notifyListeners();
+      }
+    });
+  }
+
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     _routes.add(route);
-    notifyListeners();
+    _safeNotify();
   }
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     _routes.remove(route);
-    notifyListeners();
+    _safeNotify();
   }
 
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
     _routes.remove(route);
-    notifyListeners();
+    _safeNotify();
   }
 
   @override
@@ -203,7 +230,7 @@ class AppNavigationObserver extends NavigatorObserver with ChangeNotifier {
     final index = oldRoute == null ? -1 : _routes.indexOf(oldRoute);
     if (index == -1) {
       if (newRoute != null) _routes.add(newRoute);
-      notifyListeners();
+      _safeNotify();
       return;
     }
     if (newRoute == null) {
@@ -211,6 +238,6 @@ class AppNavigationObserver extends NavigatorObserver with ChangeNotifier {
     } else {
       _routes[index] = newRoute;
     }
-    notifyListeners();
+    _safeNotify();
   }
 }
