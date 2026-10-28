@@ -745,6 +745,7 @@ MikiezySnapshot _snapshotFromState(MikiezyState state) {
     voiceProductAliases: state.voiceProductAliases,
     voiceUnitAliases: state.voiceUnitAliases,
     voiceCorrections: state.voiceCorrections,
+    onboardingCompleted: state.onboardingCompleted,
     pinEnabled: state.pinEnabled,
     biometricEnabled: state.biometricEnabled,
     cloudSyncEnabled: state.cloudSyncEnabled,

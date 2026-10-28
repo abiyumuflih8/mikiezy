@@ -2,12 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
-import 'onboarding_screen.dart';
 import '../services/navigation/app_navigation_service.dart';
+import '../services/voice/voice_command.dart';
+import '../state/app_state.dart';
+import '../theme/app_theme.dart';
+import 'dashboard_screen.dart';
+import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({
+    super.key,
+    this.splashDuration = const Duration(milliseconds: 1400),
+  });
+
+  final Duration splashDuration;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -19,7 +27,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: 1400), _goToOnboarding);
+    _timer = Timer(widget.splashDuration, _goToNextScreen);
   }
 
   @override
@@ -28,14 +36,33 @@ class _SplashScreenState extends State<SplashScreen> {
     super.dispose();
   }
 
-  void _goToOnboarding() {
+  Future<void> _goToNextScreen() async {
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        settings: const RouteSettings(name: AppRouteNames.onboarding),
-        builder: (_) => const OnboardingScreen(),
-      ),
-    );
+    final state = MikiezyScope.maybeOf(context);
+    if (state != null && !state.localStorageReady) {
+      await state.hydrateFromLocal();
+      if (!mounted) return;
+    }
+
+    final isReturningUser = state?.onboardingCompleted ?? false;
+
+    if (isReturningUser) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          settings: RouteSettings(
+            name: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+          ),
+          builder: (_) => const DashboardScreen(),
+        ),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          settings: const RouteSettings(name: AppRouteNames.onboarding),
+          builder: (_) => const OnboardingScreen(),
+        ),
+      );
+    }
   }
 
   @override

@@ -25,6 +25,10 @@ class MikiezyScope extends InheritedNotifier<MikiezyState> {
     assert(scope != null, 'MikiezyScope is missing above this widget.');
     return scope!.notifier!;
   }
+
+  static MikiezyState? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<MikiezyScope>()?.notifier;
+  }
 }
 
 class MikiezyState extends ChangeNotifier {
@@ -61,6 +65,7 @@ class MikiezyState extends ChangeNotifier {
   final BusinessMetricsService _businessMetrics =
       const BusinessMetricsService();
 
+  bool onboardingCompleted = false;
   bool pinEnabled = false;
   bool biometricEnabled = false;
   bool cloudSyncEnabled = false;
@@ -809,6 +814,23 @@ class MikiezyState extends ChangeNotifier {
     }
   }
 
+  Future<void> completeOnboarding() async {
+    if (onboardingCompleted) return;
+    onboardingCompleted = true;
+    notifyListeners();
+    final localRepository = repository;
+    if (localRepository == null) return;
+    try {
+      await localRepository.saveSnapshot(_snapshot());
+      localStorageError = null;
+    } catch (error) {
+      onboardingCompleted = false;
+      localStorageError = error.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   void togglePin(bool value) {
     pinEnabled = value;
     _persist();
@@ -1371,6 +1393,8 @@ class MikiezyState extends ChangeNotifier {
     localStorageError = null;
   }
 
+  MikiezySnapshot toSnapshot() => _snapshot();
+
   MikiezySnapshot _snapshot() {
     return MikiezySnapshot(
       products: products,
@@ -1381,6 +1405,7 @@ class MikiezyState extends ChangeNotifier {
       voiceProductAliases: voiceProductAliases,
       voiceUnitAliases: voiceUnitAliases,
       voiceCorrections: voiceCorrections,
+      onboardingCompleted: onboardingCompleted,
       pinEnabled: pinEnabled,
       biometricEnabled: biometricEnabled,
       cloudSyncEnabled: cloudSyncEnabled,
@@ -1428,6 +1453,7 @@ class MikiezyState extends ChangeNotifier {
     _voiceCorrections
       ..clear()
       ..addAll(snapshot.voiceCorrections);
+    onboardingCompleted = snapshot.onboardingCompleted;
     pinEnabled = snapshot.pinEnabled;
     biometricEnabled = snapshot.biometricEnabled;
     cloudSyncEnabled = snapshot.cloudSyncEnabled;

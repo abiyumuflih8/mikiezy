@@ -59,6 +59,11 @@ class MikiezyLocalDataSource {
       voiceProductAliases: productAliasRows.map(_productAliasFromRow).toList(),
       voiceUnitAliases: unitAliasRows.map(_unitAliasFromRow).toList(),
       voiceCorrections: correctionRows.map(_correctionFromRow).toList(),
+      onboardingCompleted: settings.containsKey(_SettingKey.onboardingCompleted)
+          ? (bool.tryParse(settings[_SettingKey.onboardingCompleted]!) ??
+                fallback.onboardingCompleted)
+          : (settings[_SettingKey.pinEnabled] == 'true' ||
+                fallback.onboardingCompleted),
       pinEnabled: _boolSetting(
         settings,
         _SettingKey.pinEnabled,
@@ -1283,6 +1288,7 @@ class MikiezyLocalDataSource {
 
   List<AppSettingsCompanion> _settingsToCompanions(MikiezySnapshot snapshot) {
     final values = <String, String>{
+      _SettingKey.onboardingCompleted: snapshot.onboardingCompleted.toString(),
       _SettingKey.pinEnabled: snapshot.pinEnabled.toString(),
       _SettingKey.biometricEnabled: snapshot.biometricEnabled.toString(),
       _SettingKey.cloudSyncEnabled: snapshot.cloudSyncEnabled.toString(),
@@ -1681,6 +1687,7 @@ bool _matchesPriceUndoAudit(
 }
 
 abstract final class _SettingKey {
+  static const onboardingCompleted = 'onboarding_completed';
   static const pinEnabled = 'pin_enabled';
   static const biometricEnabled = 'biometric_enabled';
   static const cloudSyncEnabled = 'cloud_sync_enabled';

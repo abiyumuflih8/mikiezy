@@ -76,3 +76,5 @@ app.*.map.json
 # Local UAS scripts contain personal student information
 /docs/Script_UAS_Pemrograman_Mobile_Mikiezy.docx
 /docs/script_uas_pemrograman_mobile_mikiezy.md
+# Machine-local agent configuration
+/.agents/mcp_config.json

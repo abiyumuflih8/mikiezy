@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/navigation/app_navigation_service.dart';
 import '../services/voice/voice_command.dart';
+import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/brand_mark.dart';
 import 'dashboard_screen.dart';
@@ -21,6 +22,7 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   late AuthMode _mode;
   bool _showPassword = false;
+  bool _submitting = false;
 
   bool get _isRegister => _mode == AuthMode.register;
 
@@ -34,7 +36,12 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _mode = value);
   }
 
-  void _finishAuth() {
+  Future<void> _finishAuth() async {
+    if (_submitting) return;
+    _submitting = true;
+    FocusScope.of(context).unfocus();
+    await MikiezyScope.maybeOf(context)?.completeOnboarding();
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
@@ -42,13 +49,14 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
       ),
     );
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         settings: RouteSettings(
           name: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
         ),
         builder: (_) => const DashboardScreen(),
       ),
+      (route) => false,
     );
   }
 

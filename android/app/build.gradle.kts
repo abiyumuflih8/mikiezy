@@ -23,6 +23,22 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appName"] = "mikiezy"
+    }
+
+    flavorDimensions += "default"
+
+    productFlavors {
+        create("prod") {
+            dimension = "default"
+            applicationId = "com.mikiezy.mikiezy"
+            manifestPlaceholders["appName"] = "mikiezy"
+        }
+        create("qa") {
+            dimension = "default"
+            applicationId = "com.mikiezy.mikiezy.qa"
+            manifestPlaceholders["appName"] = "Mikiezy QA"
+        }
     }
 
     buildTypes {

@@ -10,6 +10,7 @@ class MikiezySnapshot {
     required this.voiceProductAliases,
     required this.voiceUnitAliases,
     required this.voiceCorrections,
+    this.onboardingCompleted = false,
     required this.pinEnabled,
     required this.biometricEnabled,
     required this.cloudSyncEnabled,
@@ -39,6 +40,7 @@ class MikiezySnapshot {
   final List<VoiceProductAlias> voiceProductAliases;
   final List<VoiceUnitAlias> voiceUnitAliases;
   final List<VoiceCorrection> voiceCorrections;
+  final bool onboardingCompleted;
   final bool pinEnabled;
   final bool biometricEnabled;
   final bool cloudSyncEnabled;
@@ -69,6 +71,7 @@ class MikiezySnapshot {
       voiceProductAliases: List.of(voiceProductAliases),
       voiceUnitAliases: List.of(voiceUnitAliases),
       voiceCorrections: List.of(voiceCorrections),
+      onboardingCompleted: onboardingCompleted,
       pinEnabled: pinEnabled,
       biometricEnabled: biometricEnabled,
       cloudSyncEnabled: cloudSyncEnabled,

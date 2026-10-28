@@ -54,22 +54,61 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
   - Target Android fisik: `21121210G` (Android 13 / API 33, arm64-v8a).
   - Package `com.mikiezy.mikiezy` berstatus *PACKAGE NOT INSTALLED* di perangkat.
   - Jalur dinilai: *SAFE FOR CONTROLLED FIRST INSTALL*.
-- **Hardware Scenarios & Smoke Runs**: [NOT TESTED] 234 hardware scenarios dan 3 manual smoke runs (`SMOKE-01` s.d. `SMOKE-03`) belum dijalankan pada fisik perangkat.
+- **M4C.5 (Controlled Android First Install & Launch Pilot)**: [VERIFIED]
+  - APK debug terpasang pada POCO F4 GT (`21121210G`), aplikasi berhasil dibuka ke tampilan onboarding.
+  - Ditemukan temuan visual: FAB mikrofon global bocor ke onboarding dan register/login.
+- **M4D / M4D.1 (Project Continuity Checkpoint)**: [VERIFIED]
+  - Commit lokal `08c2fb5` (`docs/PROJECT_STATE.md` kanonikal & penambahan aturan kontinuitas di `AGENTS.md`).
+- **M4E.1 (Fix Global Microphone Overlay Visibility)**: [VERIFIED]
+  - Perbaikan visibilitas floating mic reaktif berbasis rute aktif di `VoiceOverlayHost`, `AppNavigationService`, dan `AppNavigationObserver`.
+  - `flutter analyze --no-pub`: 0 issues (bersih).
+  - `flutter test --no-pub`: 531/531 tests PASS (termasuk 11/11 targeted widget tests di `test/widget_test.dart`).
+- **M4E.2 (Safety Review & Local Commit)**: [VERIFIED]
+  - Commit lokal `ef92710` (`fix: restrict global microphone overlay to allowed routes`), tepat 7 file patch masuk commit.
+- **M4E.3 (Controlled Android Rebuild & Patch Deployment)**: [VERIFIED]
+  - APK debug patch berhasil di-build (`164,293,821` bytes, SHA-256 `EDF608ECCF4C78E8BDA3AE71F438E0F88C7B5E02D3D6A1AC4DB1FE617CF3E976`).
+  - Pemilik menyetujui pembaruan melalui safety gate (`adb install -r`).
+  - Update sukses pada POCO F4 GT (`lastUpdateTime: 2026-10-27 00:17:10`).
+  - Verifikasi fisik via `scrcpy` & screencap: Splash/Onboarding/Login/Register: FAB hidden; Dashboard: tepat satu global microphone FAB visible tanpa menutupi navigasi.
+  - Status bug visual: **FIX VERIFIED ON DEVICE**.
+  - Batasan verifikasi: Hilangnya FAB visual tidak membuktikan lifecycle audio tuntas (voice command, STT/TTS audio, dan runtime permission mic belum diuji).
+- **M4F.1 s.d. M4F.35 (QA Run 2 on Isolated QA Package & AppLock Security Challenge)**: [VERIFIED ON DEVICE]
+  - Paket terisolasi `com.mikiezy.mikiezy.qa` (APK SHA-256 `A9A111605A5ADBFB752185998FAED7A29210C3E1AD82A638E1446AD03835E3B1`) dipasang pada Android User 0 untuk melindungi instalasi produksi (`com.mikiezy.mikiezy` User 0 dan User 999).
+  - Seluruh 10 langkah kanonikal berhasil dieksekusi pada POCO F4 GT:
+    - Step 1: App launch & AppLock unlock (PASS).
+    - Step 2: Voice navigation ke katalog barang (PASS).
+    - Step 3: Voice create product Kopi Susu (REMEDIATED WITH DOCUMENTED DEVIATION: fallback Lain-lain diperbaiki manual via UI ke Minuman pada M4F.25).
+    - Step 4: Voice stock increment 20 -> 30 gelas (PASS).
+    - Step 5: Voice sale 1 Kopi Susu @ Rp12.000 (PASS; stok 30 -> 29).
+    - Step 6: Voice query omzet & laba (PASS WITH DATA QUALITY GAP; HPP Rp0 gap).
+    - Step 7: Voice price update Rp12.000 -> Rp14.000 (PASS; mekanisme konfirmasi suara terverifikasi).
+    - Step 8: Second voice sale @ Rp14.000 (PASS; stok 29 -> 28; penjualan historis tetap Rp12.000).
+    - Step 9: Analitik & voice tanya stok (PASS WITH DATA QUALITY GAP; Miki menjawab 28 gelas; rekonsiliasi omzet Rp94.000 valid).
+    - Step 10 & M4F.35: Cold restart business persistence & physical AppLock challenge (PASS; AppLockScreen memblokir UI sebelum unlock PIN pemilik; data bisnis bertahan; verifikasi baris tabel SQLite VoiceActionAudits tetap berstatus open).
+- **Hardware Scenarios & Smoke Runs**: [PARTIALLY TESTED] QA Run 2 (10/10 langkah kanonikal) tervalidasi pada paket terisolasi. SMOKE-01 (produksi) belum dijalankan, SMOKE-02 (XSpace) terblokir, dan mayoritas 234 skenario hardware belum dijalankan.
 
 ---
 
 ## 6. Current Operational State
-- **Build & Test Suite**: [VERIFIED] 100% PASS (530 automated tests, clean analyze, APK debug valid).
-- **Perangkat Fisik**: [VERIFIED] Terhubung via ADB, display/input didukung via `scrcpy`, belum dipasang APK.
-- **Demo / Release Readiness**: [REPORTED] **NO-GO** (Tetap ditahan hingga pembuktian 3 run smoke test dan skenario hardware kritis tervalidasi).
+- **Build & Test Suite**: [VERIFIED] 100% PASS (531 automated tests, clean analyze, APK debug patch valid).
+- **Perangkat Fisik**: [VERIFIED] Terhubung via ADB; QA Run 2 tuntas pada paket terisolasi `com.mikiezy.mikiezy.qa` (POCO F4 GT `21121210G`, User 0); instalasi produksi `com.mikiezy.mikiezy` tetap terlindungi.
+- **Demo / Release Readiness**: [REPORTED] **NO-GO** (Tetap ditahan; produksi smoke test 0/3, skenario XSpace SMOKE-02 terblokir, signing masih debug, 234 skenario hardware belum tuntas).
+- **SMOKE Runs**: [PARTIALLY TESTED] `SMOKE-01` (produksi User 0) NOT RUN; `SMOKE-02` (XSpace User 999) BLOCKED; `QA-RUN-2` (isolated QA User 0) PASS WITH DOCUMENTED DEVIATIONS (10/10 langkah kanonikal fungsional); `SMOKE-03` NOT RUN.
+- **Hardware Matrix (234 skenario)**: [PARTIALLY TESTED] 10 skenario kanonikal + 7 skenario persistence/harga (P6C-13, P6C-14, PERSIST-01..04, PERSIST-08) lulus pada QA terisolasi; mayoritas skenario tetap NOT RUN.
+- **Voice/Audio Hardware Runtime**: [VERIFIED ON ISOLATED QA] Voice command, STT/TTS audio (Miki menjawab stok, konfirmasi harga), dan mic permission terbukti berjalan di Android 13; VoiceActionAudits row persistence belum diverifikasi independen.
 
 ---
 
 ## 7. Known Issues & Blockers
+- **Bug Global Voice Overlay Leaking (Pre-Auth)**: [VERIFIED RESOLVED ON DEVICE] FAB tersembunyi pada pre-auth dan tampil tepat satu di dashboard.
 - **KI-01 (Voice Engine Stop/TTS)**: [REPORTED] Potensi TTS tetap berbicara saat stop/background; interface `GlobalVoiceEngine` belum memiliki `stopSpeaking` eksplisit.
-- **KI-04 (Hardware Matrix Unverified)**: [VERIFIED] 234 skenario hardware dan smoke test 0/3 masih berstatus NOT TESTED.
+- **KI-04 (Hardware Matrix Partially Verified)**: [VERIFIED] QA Run 2 (10/10 langkah kanonikal) lulus pada paket QA terisolasi; 234 skenario hardware dan smoke test produksi 0/3 masih belum tuntas.
 - **KI-05 (Debug Signing)**: [VERIFIED] Build Android masih menggunakan signing key debug.
 - **KI-07 (Local Privacy)**: [VERIFIED] SQLite lokal belum terenkripsi; raw voice transcript tersimpan pada tabel koreksi lokal.
+- **KI-08 (Dual Apps XSpace Blocker)**: [VERIFIED] `SMOKE-02` pada Xiaomi Dual Apps User 999 terblokir isu sandbox autentikasi/navigasi.
+- **KI-09 (Voice Action Audit Independent Verification)**: [VERIFIED GAP] Baris pencatatan pada tabel SQLite `voice_action_audits` belum diinspeksi secara independen pada perangkat fisik.
+- **KI-10 (Step 3 Voice Category Fallback)**: [VERIFIED GAP] Perintah suara tambah produk tanpa kata kategori otomatis fallback ke Lain-lain; membutuhkan klarifikasi atau edit UI.
+- **KI-11 (HPP Data Quality Gap)**: [VERIFIED GAP] HPP Kopi Susu bernilai Rp0 sehingga metriks profitabilitas pada Analitik/Voice bersifat estimasi.
 - **Desktop Registrant Metadata**: [VERIFIED] 7 file platform desktop terdeteksi modified di Git stat cache pasca `pub get` (konten 0 diff).
 - **Local MCP Config**: [VERIFIED] `.agents/mcp_config.json` lokal berstatus redundan terhadap official plugin.
 
@@ -96,13 +135,13 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 
 ## 10. Current Priorities
 1. Menjaga kontinuitas konteks agent agar tidak melakukan modifikasi tak terarah atau rebuild komponen existing.
-2. Menyelesaikan verifikasi migrasi M4 sebelum melangkah ke controlled pilot (M5).
-3. Melakukan instalasi terkontrol dan uji smoke test manual pertama (`SMOKE-01`) pada perangkat fisik target via scrcpy bila disetujui.
+2. Mempertahankan pemisahan lingkungan QA terisolasi (`com.mikiezy.mikiezy.qa`) dan instalasi produksi (`com.mikiezy.mikiezy`).
+3. Mengkaji resolusi blocker XSpace User 999 (`SMOKE-02`) dan mempersiapkan protokol pengujian smoke produksi bersih (`SMOKE-01`).
 
 ---
 
 ## 11. Next Recommended Action
-- Melakukan pembersihan status untracked `.agents/mcp_config.json` (checkpoint terpisah) atau melanjutkan ke instalasi terbatas APK debug (`M4C.5` / `SMOKE-01`) atas persetujuan pemilik.
+- Mengkaji arsitektur penanganan Dual Apps sandbox XSpace (`SMOKE-02`) atau mempersiapkan pengujian smoke produksi terkontrol (`SMOKE-01`) atas izin eksplisit pemilik.
 
 ---
 

@@ -305,6 +305,16 @@ run lama; gunakan `Run ID` berbeda.
 | Run ID | Test ID | Hasil aktual | Status | Bukti | Catatan bug/severity | Device | OS/API level | App version/build | Timestamp | Tester |
 |---|---|---|---|---|---|---|---|---|---|---|
 | P7A-LOCAL-001 | ENV-DEVICE | Tidak ada Android/iOS device terhubung | BLOCKED | `flutter devices` | Hardware validation belum dapat dimulai | Windows host | Windows 10 22H2 | 1.0.0+1 | 2026-07-24 | Codex |
+| QA2-STEP-01 | INST-04 / PERSIST-08 | App terbuka dari cold start, AppLock aktif meminta PIN, unlock manual berhasil membuka Dashboard Toko Maju Jaya | PASS | `screen_step1_locked.png`, `screen_step1_dashboard.png` (M4F.23) | Tidak ada bug; gate AppLock beroperasi normal pada fresh install/login | POCO F4 GT (21121210G) | Android 13 / MIUI 14 | 1.0.0+1 (QA APK SHA-256 a9a1...3b1) | 2026-10-27 | Antigravity Pair |
+| QA2-STEP-02 | NAV-VOICE | Perintah suara membuka katalog barang berhasil menavigasi ke ProductsScreen | PASS | `screen_step2_catalog.png` (M4F.23) | Navigasi suara ke halaman produk responsif | POCO F4 GT (21121210G) | Android 13 / MIUI 14 | 1.0.0+1 (QA APK SHA-256 a9a1...3b1) | 2026-10-27 | Antigravity Pair |
+| QA2-STEP-03 | P6A-01 / P6A-09 | Tambah produk Kopi Susu via suara berhasil dibuat di database; kategori fallback ke Lain-lain karena kata minuman tidak diucapkan | REMEDIATED WITH DOCUMENTED DEVIATION | `screen_step3_preview.png` (M4F.24), `screen_m4f25_post_restart_catalog.png` (M4F.25) | Deviating fallback kategori Lain-lain diperbaiki via UI edit terotorisasi menjadi Minuman pada M4F.25 | POCO F4 GT (21121210G) | Android 13 / MIUI 14 | 1.0.0+1 (QA APK SHA-256 a9a1...3b1) | 2026-10-27 | Antigravity Pair |
+| QA2-STEP-04 | P6B-01 / P6B-09 | Tambah stok Kopi Susu via suara berhasil menambah 10 unit (20 -> 30 gelas) | PASS | `screen_m4f26_actual_stock.png` (M4F.26) | Mutasi stok bertambah atomic dan tercermin di UI | POCO F4 GT (21121210G) | Android 13 / MIUI 14 | 1.0.0+1 (QA APK SHA-256 a9a1...3b1) | 2026-10-27 | Antigravity Pair |
+| QA2-STEP-05 | TX-VOICE-01 / PERSIST-04 | Penjualan voice 1 Kopi Susu tanpa sebut harga memakai katalog retail Rp12.000; stok berkurang 30 -> 29 | PASS | `screen_m4f27_sale_preview.png`, `screen_m4f27_post_sale_stock.png` (M4F.27) | Transaksi berhasil dicatat; snapshot unitPrice Rp12.000 tersimpan | POCO F4 GT (21121210G) | Android 13 / MIUI 14 | 1.0.0+1 (QA APK SHA-256 a9a1...3b1) | 2026-10-28 | Antigravity Pair |
+| QA2-STEP-06 | QUERY-01 / QUERY-02 | Tanya omzet & estimasi laba hari ini via suara; Miki menjawab omzet Rp57.000 dan estimasi laba Rp30.000 | PASS WITH DATA QUALITY GAP | `screen_m4f28_revenue_query.png`, `screen_m4f28_profit_query.png` (M4F.28) | HPP Kopi Susu Rp0 menyebabkan laba bersifat estimasi kasar | POCO F4 GT (21121210G) | Android 13 / MIUI 14 | 1.0.0+1 (QA APK SHA-256 a9a1...3b1) | 2026-10-28 | Antigravity Pair |
+| QA2-STEP-07 | P6C-01 / P6C-11 | Ubah harga retail Kopi Susu Rp12.000 -> Rp14.000 via suara melalui mekanisme konfirmasi suara | PASS | `screen_m4f29_price_preview.png`, `screen_m4f29_catalog_post_update.png` (M4F.29) | Retail price terupdate; transaksi historis Step 5 tetap Rp12.000 | POCO F4 GT (21121210G) | Android 13 / MIUI 14 | 1.0.0+1 (QA APK SHA-256 a9a1...3b1) | 2026-10-28 | Antigravity Pair |
+| QA2-STEP-08 | P6C-14 | Penjualan voice kedua 1 Kopi Susu memakai retail baru Rp14.000; stok berkurang 29 -> 28; sale lama tetap Rp12.000 | PASS | `report_m4f30_qa_run2_step8.md`, `screen_m4f30_new_receipt.png` (M4F.30) | Immutability snapshot terbukti; Kopi Susu memiliki 2 baris transaksi berbeda harga | POCO F4 GT (21121210G) | Android 13 / MIUI 14 | 1.0.0+1 (QA APK SHA-256 a9a1...3b1) | 2026-10-28 | Antigravity Pair |
+| QA2-STEP-09 | QUERY-03 / ANALYTICS-01 | Layar analitik terverifikasi; voice tanya stok Kopi Susu dijawab Miki 28 gelas | PASS WITH DATA QUALITY GAP | `report_m4f31_qa_run2_step9.md` (M4F.31), `report_m4f32_qa_run2_step9b.md` (M4F.32) | Gap kualitas data HPP Rp0 pada laba bersih tercatat; rekonsiliasi revenue Rp94.000 valid | POCO F4 GT (21121210G) | Android 13 / MIUI 14 | 1.0.0+1 (QA APK SHA-256 a9a1...3b1) | 2026-10-28 | Antigravity Pair |
+| QA2-STEP-10 | PERSIST-01..04 / PERSIST-08 | Controlled process cold restart membuktikan ketahanan data bisnis dan gate AppLock; row-level internal audit belum diverifikasi independen | PASS WITH AUDIT GAP | `report_m4f33_qa_run2_step10.md` (M4F.33), `report_m4f34_applock_reconciliation.md` (M4F.34), `report_m4f35_applock_challenge.md` (M4F.35) | Data 4 produk, harga Rp14.000, stok 28, 5 transaksi utuh. AppLock memblokir akses sebelum PIN. Audit row SQLite open | POCO F4 GT (21121210G) | Android 13 / MIUI 14 | 1.0.0+1 (QA APK SHA-256 a9a1...3b1) | 2026-10-28 | Antigravity Pair |
 
 ## Three-Run Demo Smoke Test
 
@@ -323,6 +333,51 @@ Jalankan urutan ini tiga kali pada database uji baru. Catat setiap run terpisah.
 
 | Run | Device/build | Start | End | Result | Evidence | Bug |
 |---|---|---|---|---|---|---|
-| SMOKE-01 | - | - | - | NOT RUN | - | - |
-| SMOKE-02 | - | - | - | NOT RUN | - | - |
+| SMOKE-01 | POCO F4 GT / Production package `com.mikiezy.mikiezy` (User 0) | - | - | NOT RUN | - | Menunggu otorisasi pengujian pada database produksi bersih |
+| SMOKE-02 | POCO F4 GT / Dual Apps XSpace `com.mikiezy.mikiezy` (User 999) | 2026-10-27 | 2026-10-27 | BLOCKED | `logcat_xspace.txt` | Lingkungan sandbox Xiaomi Dual Apps memblokir navigasi/autentikasi |
+| QA-RUN-2 | POCO F4 GT / Isolated QA `com.mikiezy.mikiezy.qa` (User 0) | 2026-10-27 | 2026-10-28 | PASS WITH DOCUMENTED DEVIATIONS | M4F.21 s.d. M4F.35 reports & screens | 10/10 langkah fungsional selesai; Step 3 Lain-lain fallback diremediasi; Step 6/9 HPP Rp0 gap; VoiceActionAudits row unverified |
 | SMOKE-03 | - | - | - | NOT RUN | - | - |
+
+### QA Run 2 Retrospective & Hardware Matrix Mapping (POCO F4 GT)
+
+#### A. Parameter Eksekusi QA Run 2
+- **Perangkat**: Xiaomi POCO F4 GT (`21121210G` / `ingres_id`), Android 13, MIUI 14 (`V140`).
+- **Paket Terisolasi**: `com.mikiezy.mikiezy.qa` (Android User 0).
+- **Target APK SHA-256**: `A9A111605A5ADBFB752185998FAED7A29210C3E1AD82A638E1446AD03835E3B1`.
+- **Paket Produksi Terlindungi**: `com.mikiezy.mikiezy` (User 0 dan User 999) tidak dimodifikasi dan tetap terisolasi.
+
+#### B. Koreksi & Klarifikasi Historis
+1. **H1 - Ucapan Step 3 & Kategori Fallback**:
+   - Perintah suara asli: `"Tambah produk kopi susu harga dua belas ribu stok dua puluh gelas"`.
+   - Parser suara tidak mengekstrak kategori karena kata "minuman" tidak diucapkan; sistem mengarahkan fallback aman ke kategori `"Lain-lain"`.
+   - Kategori diperbaiki secara manual melalui edit UI terotorisasi pada M4F.25 menjadi `"Minuman"`. Status resmi: **REMEDIATED WITH DOCUMENTED DEVIATION**.
+2. **H2 - Snapshot Diskon Es Teh Manis (`tx-002`)**:
+   - Transaksi seeded `tx-002` mencatat: Unit Price `Rp 5.000`, Quantity `5`, Diskon Transaksi `Rp 2.000`, Total Bersih `Rp 23.000`.
+   - Nilai `Rp 4.600` adalah rata-rata efektif per unit pasca diskon (`23.000 / 5`), bukan stored unit price line item.
+3. **H3 - Koreksi Inferensi AppLock M4F.33 via Physical Challenge M4F.35**:
+   - Laporan M4F.33 sempat menyimpulkan PIN non-aktif karena salah menafsirkan inisialisasi source code `bool pinEnabled = false;` di `AppState`.
+   - Investigasi forensik M4F.34 dan uji tantangan fisik M4F.35 membuktikan:
+     - PIN verifier tersimpan aktif di `FlutterSecureStorage` (`"Verifier PIN aman sudah aktif"`).
+     - Pada cold restart resmi, `AppLockScreen` (`"Mikiezy terkunci"`) secara ketat menahan seluruh navigator dan menyembunyikan data bisnis dari UI accessibility tree sebelum pemilik membuka dengan PIN.
+     - Terbukanya Dashboard pada dump M4F.33 merupakan anomali timing/race condition dump UI (4 detik dump window) atau unlock awal pemilik, bukan ketiadaan proteksi PIN.
+4. **H4 - Rekonsiliasi Produk Terlaris (Dashboard vs Analitik)**:
+   - Dashboard menampilkan `"Terlaris: Nasi Goreng"`, sedangkan Analitik menampilkan `"Produk Terlaris: Es Teh Manis"`.
+   - Hasil audit kode sumber (`lib/screens/dashboard_screen.dart`, `lib/screens/reports_screen.dart`, `lib/domain/services/business_metrics_service.dart`):
+     - Dashboard menerapkan filter periode `ReportPeriodType.today` (Hari ini). Pada hari pengujian, hanya Nasi Goreng (3 porsi) dan Kopi Susu (2 gelas) yang terjual. Maka terlaris hari ini = **Nasi Goreng** (3 unit).
+     - Analitik menerapkan filter periode `ReportPeriodType.thisWeek` / `thisMonth` (Minggu ini). Transaksi seeded `tx-002` (Es Teh Manis, 5 porsi) masuk ke dalam minggu ini. Maka terlaris minggu ini = **Es Teh Manis** (5 unit).
+     - Keduanya menggunakan ranking kuantitas (`BusinessTopProductRanking.quantity`). Perbedaan peringkat murni disebabkan oleh perbedaan jendela waktu agregasi (Hari ini vs Minggu ini) dan **bukan merupakan bug**.
+
+#### C. Pemetaan Skenario Matrix Terpilih (POCO F4 GT Isolated QA)
+- `P6C-13` (Price update persistence): **PASS** (Retail Kopi Susu Rp14.000 bertahan melewati force-stop dan restart).
+- `P6C-14` (Second sale after price update): **PASS** (Transaksi kedua Rp14.000 tercatat, transaksi pertama Rp12.000 tetap tidak berubah).
+- `PERSIST-01` (Product persistence): **PASS** (4 produk lengkap bertahan pasca cold restart).
+- `PERSIST-02` (Stock persistence): **PASS** (Stok Kopi Susu 28 gelas bertahan pasca cold restart).
+- `PERSIST-03` (Retail price persistence): **PASS** (Harga Rp14.000 bertahan pasca cold restart).
+- `PERSIST-04` (Transaction & receipt persistence): **PASS** (5 transaksi buku kas Rp94.000 bertahan utuh).
+- `PERSIST-05` (Settings persistence): **NOT TESTED / GAP** (Siklus modifikasi setelan silence/privacy dan verifikasi pasca restart belum diuji secara formal).
+- `PERSIST-08` (AppLock persistence): **PASS** (Terbukti secara empiris pada M4F.35; `AppLockScreen` memblokir akses sebelum PIN dimasukkan).
+- `AUDIT-01` s.d. `AUDIT-06` (Internal voice action audit): **NOT INDEPENDENTLY VERIFIED** (Pencatatan event pada tabel SQLite `voice_action_audits` belum diinspeksi secara baris data independen pada uji fisik read-only ini).
+
+#### D. Status Kesiapan Rilis Phase 7A
+- Status Rilis: **NO-GO**.
+- Alasan: Pengujian pada paket terisolasi `com.mikiezy.mikiezy.qa` membuktikan fungsi bisnis inti dan voice immutability berjalan baik, namun smoke test produksi pada `com.mikiezy.mikiezy` (0/3), pengujian XSpace (`SMOKE-02 BLOCKED`), dan mayoritas dari 234 skenario hardware belum tuntas. Build APK masih menggunakan signing debug.
