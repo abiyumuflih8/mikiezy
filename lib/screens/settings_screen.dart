@@ -16,6 +16,8 @@ import '../widgets/mikiezy_card.dart';
 import 'finance_screen.dart';
 import 'products_screen.dart';
 import 'app_lock_settings_dialog.dart';
+import '../services/security/diagnostics_security_gate.dart';
+import 'audit_diagnostics_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -177,6 +179,10 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14),
+                child: _InternalDiagnosticsEntry(),
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: _SignOutButton(en: en),
@@ -1487,5 +1493,39 @@ class _ProfileEditorState extends State<_ProfileEditor> {
       businessLocation: location.text.trim(),
     );
     Navigator.of(context).pop();
+  }
+}
+
+class _InternalDiagnosticsEntry extends StatelessWidget {
+  const _InternalDiagnosticsEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!DiagnosticsSecurityGate.kEnableQaAuditDiagnostics) {
+      return const SizedBox.shrink();
+    }
+    final appLock = AppLockScope.maybeOf(context);
+    return FutureBuilder<bool>(
+      future: const DiagnosticsSecurityGate().isAuthorized(appLockController: appLock),
+      builder: (context, snapshot) {
+        if (snapshot.data != true) {
+          return const SizedBox.shrink();
+        }
+        return _SettingsMenuItem(
+          icon: Icons.admin_panel_settings_outlined,
+          label: 'Internal Audit QA Diagnostics',
+          sub: 'Inspeksi durabilitas baris VoiceActionAudits',
+          color: AppColors.primary,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              settings: const RouteSettings(
+                name: AppRouteNames.auditDiagnostics,
+              ),
+              builder: (_) => const AuditDiagnosticsScreen(),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

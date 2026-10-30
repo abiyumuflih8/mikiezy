@@ -38,6 +38,7 @@ class AppLockController extends ChangeNotifier {
   bool initialized = false;
   bool isPinConfigured = false;
   bool isLocked = false;
+  bool hasAuthenticatedSession = false;
   bool biometricEnabled = false;
   bool authenticationInProgress = false;
   String? message;
@@ -112,6 +113,7 @@ class AppLockController extends ChangeNotifier {
       _record = record;
       isPinConfigured = true;
       isLocked = false;
+      hasAuthenticatedSession = false;
       biometricEnabled = false;
       message = null;
       SafeDiagnostics.voiceEvent(
@@ -148,6 +150,7 @@ class AppLockController extends ChangeNotifier {
       _record = null;
       isPinConfigured = false;
       isLocked = false;
+      hasAuthenticatedSession = false;
       biometricEnabled = false;
       message = null;
       _notify();
@@ -198,7 +201,10 @@ class AppLockController extends ChangeNotifier {
         );
         await _store.write(resetRecord);
         _record = resetRecord;
-        if (unlockOnSuccess) isLocked = false;
+        if (unlockOnSuccess) {
+          isLocked = false;
+          hasAuthenticatedSession = true;
+        }
         message = null;
         SafeDiagnostics.voiceEvent(
           'app_lock_pin_verification',
@@ -310,6 +316,7 @@ class AppLockController extends ChangeNotifier {
       switch (result.status) {
         case BiometricAuthenticationStatus.success:
           isLocked = false;
+          hasAuthenticatedSession = true;
           message = null;
           return const AppLockOperationResult.success('Aplikasi terbuka.');
         case BiometricAuthenticationStatus.cancelled:
@@ -383,6 +390,7 @@ class AppLockController extends ChangeNotifier {
   void lock() {
     if (!isPinConfigured || isLocked) return;
     isLocked = true;
+    hasAuthenticatedSession = false;
     message = null;
     SafeDiagnostics.voiceEvent(
       'app_lock_state_changed',

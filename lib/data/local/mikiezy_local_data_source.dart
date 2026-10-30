@@ -972,6 +972,17 @@ class MikiezyLocalDataSource {
             .get();
     return rows.map(_voiceActionAuditFromRow).toList(growable: false);
   }
+  Future<List<VoiceActionAuditEvent>> readRecentVoiceActionAudits({
+    int limit = 50,
+  }) async {
+    final boundedLimit = limit.clamp(1, 100);
+    final rows =
+        await (_database.select(_database.voiceActionAudits)
+              ..orderBy([(table) => OrderingTerm.desc(table.createdAt)])
+              ..limit(boundedLimit))
+            .get();
+    return rows.map(_voiceActionAuditFromRow).toList(growable: false);
+  }
 
   Future<void> upsertProduct(Product product) {
     return _database

@@ -15,6 +15,7 @@ abstract final class AppRouteNames {
   static const auth = 'auth';
   static const previewTransaction = 'preview-transaction';
   static const voiceEntry = 'voice-entry';
+  static const auditDiagnostics = 'internal-audit-diagnostics';
 
   static String forTarget(VoiceNavigationTarget target) {
     return 'voice-${_canonical(target).name}';

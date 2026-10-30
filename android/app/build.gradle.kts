@@ -39,6 +39,11 @@ android {
             applicationId = "com.mikiezy.mikiezy.qa"
             manifestPlaceholders["appName"] = "Mikiezy QA"
         }
+        create("qaAudit") {
+            dimension = "default"
+            applicationId = "com.mikiezy.mikiezy.qa.audit"
+            manifestPlaceholders["appName"] = "Mikiezy Audit QA"
+        }
     }
 
     buildTypes {

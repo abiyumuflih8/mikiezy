@@ -70,6 +70,7 @@ abstract class MikiezyRepository {
     VoicePriceUpdateUndoRequest request,
   );
   Future<List<VoiceActionAuditEvent>> loadVoiceActionAudits(String actionId);
+  Future<List<VoiceActionAuditEvent>> loadRecentVoiceActionAudits({int limit = 50});
   Future<void> close();
 }
 
@@ -770,6 +771,15 @@ class MemoryMikiezyRepository implements MikiezyRepository {
         .where((event) => event.actionId == actionId)
         .toList(growable: false);
   }
+  @override
+  Future<List<VoiceActionAuditEvent>> loadRecentVoiceActionAudits({
+    int limit = 50,
+  }) async {
+    final bounded = limit.clamp(1, 100);
+    final sorted = List<VoiceActionAuditEvent>.from(_voiceActionAudits)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return sorted.take(bounded).toList(growable: false);
+  }
 
   @override
   Future<void> close() async {}
@@ -937,6 +947,12 @@ class DriftMikiezyRepository implements MikiezyRepository {
   @override
   Future<List<VoiceActionAuditEvent>> loadVoiceActionAudits(String actionId) {
     return _localDataSource.readVoiceActionAudits(actionId);
+  }
+  @override
+  Future<List<VoiceActionAuditEvent>> loadRecentVoiceActionAudits({
+    int limit = 50,
+  }) {
+    return _localDataSource.readRecentVoiceActionAudits(limit: limit);
   }
 
   @override
