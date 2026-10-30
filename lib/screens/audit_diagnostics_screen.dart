@@ -112,12 +112,21 @@ class _AuditDiagnosticsScreenState extends State<AuditDiagnosticsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   SanitizedAuditSummary? _summary;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
     _gate = widget.securityGate ?? const DiagnosticsSecurityGate();
-    _evaluateAndLoad();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      _isInitialized = true;
+      _evaluateAndLoad();
+    }
   }
 
   @override
