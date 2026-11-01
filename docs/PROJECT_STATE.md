@@ -6,7 +6,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 
 ## 1. Project Overview
 - **Scope & Tujuan**: [REPORTED] Aplikasi POS dan pembukuan keuangan UMKM *offline-first* dengan pemahaman transaksi berbasis suara berbahasa Indonesia, sekaligus subjek penelitian skripsi peminatan AI.
-- **Repository Baseline**: [VERIFIED] Workspace `C:\kuliah\pbm\mikiezy-antigravity` pada branch `migration/antigravity-pilot`. Baseline Phase 7A berasal dari commit `3680e1a` (`master`, v1.0.0+1). Checkpoint konfigurasi agent terakhir adalah commit `4fdc3ea`.
+- **Repository Baseline**: [VERIFIED] Workspace `C:\kuliah\pbm\mikiezy-antigravity` pada branch `migration/antigravity-pilot`. Baseline Phase 7A berasal dari commit `3680e1a` (`master`, v1.0.0+1). Checkpoint Git terakhir tersinkronisasi adalah commit `d0438755dd64d04d04eceb05046e12766ba184d8` (M4F.72). Host test suite: 614/614 PASS, analyze bersih.
 
 ---
 
@@ -85,13 +85,31 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
     - Step 8: Second voice sale @ Rp14.000 (PASS; stok 29 -> 28; penjualan historis tetap Rp12.000).
     - Step 9: Analitik & voice tanya stok (PASS WITH DATA QUALITY GAP; Miki menjawab 28 gelas; rekonsiliasi omzet Rp94.000 valid).
     - Step 10 & M4F.35: Cold restart business persistence & physical AppLock challenge (PASS; AppLockScreen memblokir UI sebelum unlock PIN pemilik; data bisnis bertahan; verifikasi baris tabel SQLite VoiceActionAudits tetap berstatus open).
-- **Hardware Scenarios & Smoke Runs**: [PARTIALLY TESTED] QA Run 2 (10/10 langkah kanonikal) tervalidasi pada paket terisolasi. SMOKE-01 (produksi) belum dijalankan, SMOKE-02 (XSpace) terblokir, dan mayoritas 234 skenario hardware belum dijalankan.
+- **M4F.60 s.d. M4F.72 (Concurrency Hardening, AppLock Expiry, & Host Regressions)**: [VERIFIED]
+  - Ditemukan dan diremediasi deterministik gap konkurensi pada `VoiceActionCoordinator` (konfirmasi ganda, pembatalan bersamaan, race pembatalan awal, dan AppLock/expiry guard).
+  - Ditambahkan in-flight guard (`_inFlightActionIds`) dan finalized guard (`_finalizedActionIds`).
+  - Target regression tests (31 tests) bertambah hingga total host test suite mencapai 614/614 PASS (analyze bersih).
+  - Seluruh checkpoint Git (M4F.65, M4F.68, M4F.70, M4F.72) tersinkronisasi ke remote `origin` hingga commit `d0438755`.
+- **M4F.73 (Isolated Diagnostic APK v3 Host Build & Provenance Audit)**: [VERIFIED]
+  - Build rilis `--flavor qaAudit --build-number=3` menghasilkan `app-qaaudit-release.apk` (SHA-256 `4857B61B...`).
+  - Verifikasi sertifikat penandatanganan via `apksigner`: SHA-256 digest `ed0e0615...` (100% identik dengan v2 dan debug keystore lokal).
+  - Badging via `aapt2`: `com.mikiezy.mikiezy.qa.audit`, `versionCode=3`, non-debuggable release build.
+- **M4F.74 (In-Place APK v3 Update & Post-Update Durability on POCO F4 GT)**: [VERIFIED ON DEVICE]
+  - Pembaruan in-place via `adb install -r` sukses tanpa konflik tanda tangan.
+  - Verifikasi `dumpsys package`: `userId=10462` bertahan, `versionCode=3`.
+  - AppLock fail-closed terverifikasi (layar terkunci memblokir data bisnis hingga PIN pemilik dimasukkan).
+  - Durabilitas data 100% terjaga pasca update: 4 produk katalog dan 6 event audit lokal utuh.
+- **M4F.75 (Physical Post-Remediation Concurrency & Voice Verification)**: [VERIFIED ON DEVICE]
+  - Uji suara fisik mutasi `createProduct` (`Keripik Singkong`): transisi status `previewed` -> `confirmed` -> `executionStarted` -> `succeeded` dieksekusi tepat satu kali (zero duplicate).
+  - Uji suara fisik pembatalan `createProduct` (`Makaroni Pedas`): transisi status `previewed` -> `cancelled` saat pemilik mengucapkan "Batal". Asisten merespons: "Perubahan dibatalkan. Tidak ada data yang diubah" dan produk tidak masuk katalog (zero mutation).
+  - Metrik durabilitas `VoiceActionAudits`: 12 total event, 5 aksi unik, 2 berhasil, 1 gagal, 2 penolakan/pembatalan terminal.
+- **Hardware Scenarios & Smoke Runs**: [PARTIALLY TESTED] QA Run 2 & QA Run 3 tervalidasi pada paket terisolasi. SMOKE-01 (produksi) belum dijalankan, SMOKE-02 (XSpace) terblokir, dan mayoritas 234 skenario hardware belum dijalankan.
 
 ---
 
 ## 6. Current Operational State
-- **Build & Test Suite**: [VERIFIED] 100% PASS (531 automated tests, clean analyze, APK debug patch valid).
-- **Perangkat Fisik**: [VERIFIED] Terhubung via ADB; QA Run 2 tuntas pada paket terisolasi `com.mikiezy.mikiezy.qa` (POCO F4 GT `21121210G`, User 0); instalasi produksi `com.mikiezy.mikiezy` tetap terlindungi.
+- **Build & Test Suite**: [VERIFIED] 100% PASS (614 automated tests, clean analyze, APK v3 release valid).
+- **Perangkat Fisik**: [VERIFIED] Terhubung via ADB; QA Run 2 & QA Run 3 tuntas pada paket terisolasi `com.mikiezy.mikiezy.qa` & `com.mikiezy.mikiezy.qa.audit` (POCO F4 GT `21121210G`, User 0, versionCode=3); instalasi produksi `com.mikiezy.mikiezy` tetap terlindungi.
 - **Demo / Release Readiness**: [REPORTED] **NO-GO** (Tetap ditahan; produksi smoke test 0/3, skenario XSpace SMOKE-02 terblokir, signing masih debug, 234 skenario hardware belum tuntas).
 - **SMOKE Runs**: [PARTIALLY TESTED] `SMOKE-01` (produksi User 0) NOT RUN; `SMOKE-02` (XSpace User 999) BLOCKED; `QA-RUN-2` (isolated QA User 0) PASS WITH DOCUMENTED DEVIATIONS (10/10 langkah kanonikal fungsional); `SMOKE-03` NOT RUN.
 - **Hardware Matrix (234 skenario)**: [PARTIALLY TESTED] 10 skenario kanonikal + 7 skenario persistence/harga (P6C-13, P6C-14, PERSIST-01..04, PERSIST-08) lulus pada QA terisolasi; mayoritas skenario tetap NOT RUN.
@@ -106,7 +124,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 - **KI-05 (Debug Signing)**: [VERIFIED] Build Android masih menggunakan signing key debug.
 - **KI-07 (Local Privacy)**: [VERIFIED] SQLite lokal belum terenkripsi; raw voice transcript tersimpan pada tabel koreksi lokal.
 - **KI-08 (Dual Apps XSpace Blocker)**: [VERIFIED] `SMOKE-02` pada Xiaomi Dual Apps User 999 terblokir isu sandbox autentikasi/navigasi.
-- **KI-09 (Voice Action Audit Independent Verification)**: [VERIFIED GAP] Baris pencatatan pada tabel SQLite `voice_action_audits` belum diinspeksi secara independen pada perangkat fisik.
+- **KI-09 (Voice Action Audit Independent Verification)**: [VERIFIED RESOLVED ON DEVICE] Inspeksi independen melalui layar diagnostik internal `Internal Audit QA Diagnostics` pada POCO F4 GT mengonfirmasi pencatatan persisten 12 baris event audit dari 5 aksi unik pada SQLite lokal (`VoiceActionAudits`).
 - **KI-10 (Step 3 Voice Category Fallback)**: [VERIFIED GAP] Perintah suara tambah produk tanpa kata kategori otomatis fallback ke Lain-lain; membutuhkan klarifikasi atau edit UI.
 - **KI-11 (HPP Data Quality Gap)**: [VERIFIED GAP] HPP Kopi Susu bernilai Rp0 sehingga metriks profitabilitas pada Analitik/Voice bersifat estimasi.
 - **Desktop Registrant Metadata**: [VERIFIED] 7 file platform desktop terdeteksi modified di Git stat cache pasca `pub get` (konten 0 diff).
