@@ -56,12 +56,13 @@ class VoiceActionCoordinator {
     final action = pendingAction;
     if (action == null) return;
     if (_inFlightActionIds.contains(action.actionId)) return;
-    await _record(action, VoiceActionStatus.cancelled, errorCode: errorCode);
+    if (_finalizedActionIds.contains(action.actionId)) return;
+    _finalizedActionIds.add(action.actionId);
     if (pendingAction?.actionId == action.actionId) {
       pendingAction = null;
     }
     _awaitingAdditionalConfirmationActionIds.remove(action.actionId);
-    _finalizedActionIds.add(action.actionId);
+    await _record(action, VoiceActionStatus.cancelled, errorCode: errorCode);
   }
 
   Future<VoiceCommandResponse> rejectDuplicate(
@@ -155,12 +156,16 @@ class VoiceActionCoordinator {
       );
     }
     if (isAppLocked) {
+      _finalizedActionIds.add(action.actionId);
+      if (pendingAction?.actionId == action.actionId) {
+        pendingAction = null;
+      }
+      _awaitingAdditionalConfirmationActionIds.remove(action.actionId);
       await _record(
         action,
         VoiceActionStatus.blockedLocked,
         errorCode: 'app_locked',
       );
-      _finish(action);
       return const VoiceCommandResponse(
         displayText:
             'Aplikasi terkunci. Perubahan dibatalkan dan harus dibuat ulang setelah unlock.',
@@ -168,23 +173,48 @@ class VoiceActionCoordinator {
       );
     }
     if (action.isExpiredAt(_now())) {
+      _finalizedActionIds.add(action.actionId);
+      if (pendingAction?.actionId == action.actionId) {
+        pendingAction = null;
+      }
+      _awaitingAdditionalConfirmationActionIds.remove(action.actionId);
       await _record(
         action,
         VoiceActionStatus.expired,
         errorCode: 'confirmation_expired',
       );
-      _finish(action);
       return const VoiceCommandResponse(
         displayText: 'Preview perubahan sudah kedaluwarsa. Ulangi perintah.',
         kind: VoiceResponseKind.error,
       );
     }
 
+    if (_finalizedActionIds.contains(action.actionId)) {
+      if (pendingAction?.actionId == action.actionId) {
+        pendingAction = null;
+      }
+      return const VoiceCommandResponse(
+        displayText: 'Perintah ini sudah pernah dijalankan.',
+        kind: VoiceResponseKind.information,
+      );
+    }
+
+    if (_inFlightActionIds.contains(action.actionId)) {
+      return const VoiceCommandResponse(
+        displayText: 'Perintah ini sedang diproses. Mohon tunggu.',
+        kind: VoiceResponseKind.information,
+      );
+    }
+
     final decision = confirmationParser.parse(answer);
     switch (decision) {
       case VoiceActionConfirmationDecision.cancel:
+        _finalizedActionIds.add(action.actionId);
+        if (pendingAction?.actionId == action.actionId) {
+          pendingAction = null;
+        }
+        _awaitingAdditionalConfirmationActionIds.remove(action.actionId);
         await _record(action, VoiceActionStatus.cancelled);
-        _finish(action);
         return const VoiceCommandResponse(
           displayText: 'Perubahan dibatalkan. Tidak ada data yang diubah.',
         );
@@ -195,12 +225,16 @@ class VoiceActionCoordinator {
           title: 'Detail perubahan',
         );
       case VoiceActionConfirmationDecision.edit:
+        _finalizedActionIds.add(action.actionId);
+        if (pendingAction?.actionId == action.actionId) {
+          pendingAction = null;
+        }
+        _awaitingAdditionalConfirmationActionIds.remove(action.actionId);
         await _record(
           action,
           VoiceActionStatus.cancelled,
           errorCode: 'edit_requested',
         );
-        _finish(action);
         return const VoiceCommandResponse(
           displayText:
               'Preview lama dibatalkan. Ulangi perintah dengan nilai yang benar.',
@@ -218,20 +252,6 @@ class VoiceActionCoordinator {
         break;
     }
 
-    if (_finalizedActionIds.contains(action.actionId)) {
-      pendingAction = null;
-      return const VoiceCommandResponse(
-        displayText: 'Perintah ini sudah pernah dijalankan.',
-        kind: VoiceResponseKind.information,
-      );
-    }
-
-    if (_inFlightActionIds.contains(action.actionId)) {
-      return const VoiceCommandResponse(
-        displayText: 'Perintah ini sedang diproses. Mohon tunggu.',
-        kind: VoiceResponseKind.information,
-      );
-    }
     _inFlightActionIds.add(action.actionId);
     try {
 
