@@ -46,6 +46,7 @@ class VoiceActionCoordinator {
   final DateTime Function() _now;
   final Set<String> _finalizedActionIds = {};
   final Set<String> _awaitingAdditionalConfirmationActionIds = {};
+  final Set<String> _inFlightActionIds = {};
 
   VoiceActionDraft? pendingAction;
 
@@ -54,6 +55,7 @@ class VoiceActionCoordinator {
   Future<void> cancelPending({String errorCode = 'session_closed'}) async {
     final action = pendingAction;
     if (action == null) return;
+    _inFlightActionIds.remove(action.actionId);
     await _record(action, VoiceActionStatus.cancelled, errorCode: errorCode);
     pendingAction = null;
     _awaitingAdditionalConfirmationActionIds.remove(action.actionId);
@@ -222,6 +224,15 @@ class VoiceActionCoordinator {
       );
     }
 
+    if (_inFlightActionIds.contains(action.actionId)) {
+      return const VoiceCommandResponse(
+        displayText: 'Perintah ini sedang diproses. Mohon tunggu.',
+        kind: VoiceResponseKind.information,
+      );
+    }
+    _inFlightActionIds.add(action.actionId);
+    try {
+
     String? currentFingerprint;
     if (currentBaseFingerprint != null) {
       currentFingerprint = await currentBaseFingerprint(action);
@@ -374,6 +385,9 @@ class VoiceActionCoordinator {
             'Perubahan belum berhasil disimpan dan tidak ada data yang berubah.',
         kind: VoiceResponseKind.error,
       );
+    }
+    } finally {
+      _inFlightActionIds.remove(action.actionId);
     }
   }
 
