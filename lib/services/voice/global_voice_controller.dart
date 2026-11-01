@@ -232,6 +232,7 @@ class GlobalVoiceController extends ChangeNotifier {
     _cancelTimers();
     try {
       await _engine.cancelListening();
+      await _engine.stopSpeaking();
       await _engine.cancelPendingMutation(errorCode: 'voice_session_stopped');
     } catch (error, stackTrace) {
       _log('Global voice stop failed', error, stackTrace);
@@ -273,13 +274,13 @@ class GlobalVoiceController extends ChangeNotifier {
       return;
     }
     if (!_appForeground &&
-        (isOpen || _engine.nativeListening || _engine.isStarting)) {
+        (isOpen || isBusy || _engine.nativeListening || _engine.isStarting)) {
       unawaited(_stopForLifecycle());
     }
   }
 
   void setAppLocked(bool value) {
-    if (value && (isOpen || _engine.nativeListening || _engine.isStarting)) {
+    if (value && (isOpen || isBusy || _engine.nativeListening || _engine.isStarting)) {
       unawaited(_stopForLock());
     } else if (!value) {
       unawaited(_resumeWakeWordIfNeeded());
@@ -289,7 +290,7 @@ class GlobalVoiceController extends ChangeNotifier {
   void setSensitiveSurfaceVisible(bool value) {
     if (_sensitiveSurfaceVisible == value) return;
     _sensitiveSurfaceVisible = value;
-    if (value && (isOpen || _engine.nativeListening || _engine.isStarting)) {
+    if (value && (isOpen || isBusy || _engine.nativeListening || _engine.isStarting)) {
       unawaited(
         stop(reason: 'Sesi voice dijeda saat dialog sensitif terbuka.'),
       );

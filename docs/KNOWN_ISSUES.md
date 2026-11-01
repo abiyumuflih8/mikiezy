@@ -2,7 +2,7 @@
 
 | ID | Evidence | Temuan | Dampak / next verification |
 |---|---|---|---|
-| KI-01 | VERIFIED: audit statis | Global stop/background/lock memanggil engine.cancelListening; controller.cancelListening membatalkan STT tetapi tidak TTS; interface engine tidak punya stopSpeaking | Potensi TTS tetap berbicara. PROPOSED: reproduksi saat speaking lalu stop/Home/lock; belum bug hardware terkonfirmasi |
+| KI-01 | HOST REMEDIATED / DEVICE VERIFICATION PENDING | Celah lifecycle audio TTS: stop/background/AppLock/dialog sensitif sebelumnya hanya membatalkan STT dan membiarkan native TTS berbicara. Diremediasi pada M4F.80 dengan penambahan kontrak `stopSpeaking()` pada `GlobalVoiceEngine`, implementasi `VoiceAssistantController.stopSpeaking()` membungkus `_tts.stop()`, serta evaluasi `isBusy` pada guard lifecycle controller. Diverifikasi via 12/12 unit regression tests (626 full suite PASS, analyze bersih). | Keterbatasan: Pembatalan STT menunggu `stopSpeaking()`; potensi delay jika native TTS hang; failure handling `_speech.cancel()` masih warisan legacy; risiko acoustic feedback belum terbukti hilang tanpa uji hardware. Memerlukan verifikasi audio fisik terkontrol via build APK v4 mendatang. |
 | KI-02 | VERIFIED | README menyebut mutation execution disabled, tetapi main.dart mengaktifkan tiga flags | Agent dapat salah memahami safety boundary; PROPOSED: sinkronkan README dalam scope dokumentasi berikutnya |
 | KI-03 | VERIFIED | Laporan Phase 7A menyimpan snapshot worktree dirty sebelum commit | Historis valid; jangan dianggap kondisi Git saat ini atau dihapus untuk membuat hasil tampak baru |
 | KI-04 | VERIFIED | 234 hardware scenarios dan smoke 0/3 masih NOT RUN pada matrix | REPORTED: demo/release NO-GO; device saat ini belum dicek M1 |

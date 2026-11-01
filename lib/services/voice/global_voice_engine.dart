@@ -37,6 +37,8 @@ abstract interface class GlobalVoiceEngine implements Listenable {
 
   Future<void> speak(String text);
 
+  Future<void> stopSpeaking();
+
   void clearTranscript();
 
   void prepareForClarification();
@@ -113,6 +115,9 @@ class VoiceAssistantGlobalEngine implements GlobalVoiceEngine {
 
   @override
   Future<void> speak(String text) => controller.speak(text);
+
+  @override
+  Future<void> stopSpeaking() => controller.stopSpeaking();
 
   @override
   void clearTranscript() => controller.clearTranscript();

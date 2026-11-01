@@ -621,7 +621,20 @@ class VoiceAssistantController extends ChangeNotifier {
     return null;
   }
 
+  Future<void> stopSpeaking() async {
+    try {
+      await _tts.stop();
+    } catch (error, stackTrace) {
+      SafeDiagnostics.failure('voice_tts_stop_failed', error, stackTrace);
+      if (!_disposed) {
+        lastError = error.toString();
+        notifyListeners();
+      }
+    }
+  }
+
   Future<void> cancelListening() async {
+    await stopSpeaking();
     _listeningGeneration += 1;
     _isStarting = false;
     if (nativeListening) {

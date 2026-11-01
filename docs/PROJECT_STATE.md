@@ -6,7 +6,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 
 ## 1. Project Overview
 - **Scope & Tujuan**: [REPORTED] Aplikasi POS dan pembukuan keuangan UMKM *offline-first* dengan pemahaman transaksi berbasis suara berbahasa Indonesia, sekaligus subjek penelitian skripsi peminatan AI.
-- **Repository Baseline**: [VERIFIED] Workspace `C:\kuliah\pbm\mikiezy-antigravity` pada branch `migration/antigravity-pilot`. Baseline Phase 7A berasal dari commit `3680e1a` (`master`, v1.0.0+1). Checkpoint Git terakhir tersinkronisasi adalah commit `a8f422c6a5e25a75c5715d1d996c194453b1efac` (M4F.73–75). Host test suite: 614/614 PASS, analyze bersih.
+- **Repository Baseline**: [VERIFIED] Workspace `C:\kuliah\pbm\mikiezy-antigravity` pada branch `migration/antigravity-pilot`. Baseline Phase 7A berasal dari commit `3680e1a` (`master`, v1.0.0+1). Checkpoint Git terakhir tersinkronisasi adalah commit `6d4f3ac2f9332930392431eda05ff72d5825b2c8` (M4F.78). Host test suite: 626/626 PASS, analyze bersih.
 
 ---
 
@@ -103,12 +103,18 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
   - Uji suara fisik mutasi `createProduct` (`Keripik Singkong`): transisi status `previewed` -> `confirmed` -> `executionStarted` -> `succeeded` dieksekusi tepat satu kali (zero duplicate).
   - Uji suara fisik pembatalan `createProduct` (`Makaroni Pedas`): transisi status `previewed` -> `cancelled` saat pemilik mengucapkan "Batal". Asisten merespons: "Perubahan dibatalkan. Tidak ada data yang diubah" dan produk tidak masuk katalog (zero mutation).
   - Metrik durabilitas `VoiceActionAudits`: 12 total event, 5 aksi unik, 2 berhasil, 1 gagal, 2 penolakan/pembatalan terminal.
+- **M4F.80 & M4F.80.1 (Voice Lifecycle & STT/TTS Safety Hardening — KI-01 Host Remediation & Pre-Commit Review)**: [VERIFIED HOST-ONLY]
+  - Celah lifecycle audio TTS (KI-01) direproduksi test-first (6 skenario red pada unmodified source).
+  - Remediasi minimal: penambahan kontrak `stopSpeaking()` pada `GlobalVoiceEngine` dan `VoiceAssistantController`, pemanggilan saat `cancelListening()` dan `stop()`, serta pemantauan `isBusy` pada guard `handleLifecycleState`, `setAppLocked`, dan `setSensitiveSurfaceVisible`.
+  - Verifikasi host tuntas: targeted KI-01 tests 12/12 PASS, voice overlay tests 11/11 PASS, full test suite 626/626 PASS (+12 dari baseline 614), static analysis clean (0 issues).
+  - Pre-commit safety review (M4F.80.1): Invariant A, B, D..M verified; zero mutation bisnis/database; terminal logs terverifikasi exit code 0.
+  - Keterbatasan: APK v3 yang terpasang di POCO F4 GT (`d0438755`) mendahului patch KI-01; verifikasi fisik audio TTS memerlukan build terpisah APK v4.
 - **Hardware Scenarios & Smoke Runs**: [PARTIALLY TESTED] QA Run 2 & QA Run 3 tervalidasi pada paket terisolasi. SMOKE-01 (produksi) belum dijalankan, SMOKE-02 (XSpace) terblokir, dan mayoritas 234 skenario hardware belum dijalankan.
 
 ---
 
 ## 6. Current Operational State
-- **Build & Test Suite**: [VERIFIED] 100% PASS (614 automated tests, clean analyze, APK v3 release valid).
+- **Build & Test Suite**: [VERIFIED] 100% PASS (626 automated tests terverifikasi via log M4F.80.1, analyze bersih, APK v3 release valid).
 - **Perangkat Fisik**: [VERIFIED] Terhubung via ADB; QA Run 2 & QA Run 3 tuntas pada paket terisolasi `com.mikiezy.mikiezy.qa` & `com.mikiezy.mikiezy.qa.audit` (POCO F4 GT `21121210G`, User 0, versionCode=3); instalasi produksi `com.mikiezy.mikiezy` tetap terlindungi.
 - **Demo / Release Readiness**: [REPORTED] **NO-GO** (Tetap ditahan; produksi smoke test 0/3, skenario XSpace SMOKE-02 terblokir, signing masih debug, 234 skenario hardware belum tuntas).
 - **SMOKE Runs**: [PARTIALLY TESTED] `SMOKE-01` (produksi User 0) NOT RUN; `SMOKE-02` (XSpace User 999) BLOCKED; `QA-RUN-2` (isolated QA User 0) PASS WITH DOCUMENTED DEVIATIONS (10/10 langkah kanonikal fungsional); `SMOKE-03` NOT RUN.
@@ -119,7 +125,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 
 ## 7. Known Issues & Blockers
 - **Bug Global Voice Overlay Leaking (Pre-Auth)**: [VERIFIED RESOLVED ON DEVICE] FAB tersembunyi pada pre-auth dan tampil tepat satu di dashboard.
-- **KI-01 (Voice Engine Stop/TTS)**: [REPORTED] Potensi TTS tetap berbicara saat stop/background; interface `GlobalVoiceEngine` belum memiliki `stopSpeaking` eksplisit.
+- **KI-01 (Voice Engine Stop/TTS)**: [HOST REMEDIATED / DEVICE VERIFICATION PENDING] Celah lifecycle audio TTS telah diremediasi pada host level (kontrak `stopSpeaking`, guard `isBusy`, 12/12 regression tests PASS). Verifikasi fisik di POCO F4 GT masih pending menunggu build APK v4.
 - **KI-04 (Hardware Matrix Partially Verified)**: [VERIFIED] QA Run 2 (10/10 langkah kanonikal) lulus pada paket QA terisolasi; 234 skenario hardware dan smoke test produksi 0/3 masih belum tuntas.
 - **KI-05 (Debug Signing)**: [VERIFIED] Build Android masih menggunakan signing key debug.
 - **KI-07 (Local Privacy)**: [VERIFIED] SQLite lokal belum terenkripsi; raw voice transcript tersimpan pada tabel koreksi lokal.

@@ -376,6 +376,11 @@ class _FakeGlobalVoiceEngine extends ChangeNotifier
   }
 
   @override
+  Future<void> stopSpeaking() async {
+    events.add('stopSpeaking');
+  }
+
+  @override
   Future<void> speak(String text) async {
     events.add('speak');
   }
