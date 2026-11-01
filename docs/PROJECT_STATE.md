@@ -6,7 +6,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 
 ## 1. Project Overview
 - **Scope & Tujuan**: [REPORTED] Aplikasi POS dan pembukuan keuangan UMKM *offline-first* dengan pemahaman transaksi berbasis suara berbahasa Indonesia, sekaligus subjek penelitian skripsi peminatan AI.
-- **Repository Baseline**: [VERIFIED] Workspace `C:\kuliah\pbm\mikiezy-antigravity` pada branch `migration/antigravity-pilot`. Baseline Phase 7A berasal dari commit `3680e1a` (`master`, v1.0.0+1). Checkpoint Git terakhir tersinkronisasi adalah commit `d0438755dd64d04d04eceb05046e12766ba184d8` (M4F.72). Host test suite: 614/614 PASS, analyze bersih.
+- **Repository Baseline**: [VERIFIED] Workspace `C:\kuliah\pbm\mikiezy-antigravity` pada branch `migration/antigravity-pilot`. Baseline Phase 7A berasal dari commit `3680e1a` (`master`, v1.0.0+1). Checkpoint Git terakhir tersinkronisasi adalah commit `a8f422c6a5e25a75c5715d1d996c194453b1efac` (M4F.73–75). Host test suite: 614/614 PASS, analyze bersih.
 
 ---
 
@@ -113,7 +113,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 - **Demo / Release Readiness**: [REPORTED] **NO-GO** (Tetap ditahan; produksi smoke test 0/3, skenario XSpace SMOKE-02 terblokir, signing masih debug, 234 skenario hardware belum tuntas).
 - **SMOKE Runs**: [PARTIALLY TESTED] `SMOKE-01` (produksi User 0) NOT RUN; `SMOKE-02` (XSpace User 999) BLOCKED; `QA-RUN-2` (isolated QA User 0) PASS WITH DOCUMENTED DEVIATIONS (10/10 langkah kanonikal fungsional); `SMOKE-03` NOT RUN.
 - **Hardware Matrix (234 skenario)**: [PARTIALLY TESTED] 10 skenario kanonikal + 7 skenario persistence/harga (P6C-13, P6C-14, PERSIST-01..04, PERSIST-08) lulus pada QA terisolasi; mayoritas skenario tetap NOT RUN.
-- **Voice/Audio Hardware Runtime**: [VERIFIED ON ISOLATED QA] Voice command, STT/TTS audio (Miki menjawab stok, konfirmasi harga), dan mic permission terbukti berjalan di Android 13; VoiceActionAudits row persistence belum diverifikasi independen.
+- **Voice/Audio Hardware Runtime**: [VERIFIED ON ISOLATED QA] Voice command, STT/TTS audio (Miki menjawab stok, konfirmasi harga), dan mic permission terbukti berjalan di Android 13; VoiceActionAudits row persistence terverifikasi melalui layar diagnostik internal (12 events, 5 unique actions terkonfirmasi di UI diagnostik; ekstraksi out-of-band DB belum dilakukan).
 
 ---
 
@@ -124,7 +124,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 - **KI-05 (Debug Signing)**: [VERIFIED] Build Android masih menggunakan signing key debug.
 - **KI-07 (Local Privacy)**: [VERIFIED] SQLite lokal belum terenkripsi; raw voice transcript tersimpan pada tabel koreksi lokal.
 - **KI-08 (Dual Apps XSpace Blocker)**: [VERIFIED] `SMOKE-02` pada Xiaomi Dual Apps User 999 terblokir isu sandbox autentikasi/navigasi.
-- **KI-09 (Voice Action Audit Independent Verification)**: [VERIFIED RESOLVED ON DEVICE] Inspeksi independen melalui layar diagnostik internal `Internal Audit QA Diagnostics` pada POCO F4 GT mengonfirmasi pencatatan persisten 12 baris event audit dari 5 aksi unik pada SQLite lokal (`VoiceActionAudits`).
+- **KI-09 (Voice Action Audit Verification)**: [VERIFIED RESOLVED ON DEVICE VIA DIAGNOSTICS UI] Inspeksi melalui layar diagnostik internal `Internal Audit QA Diagnostics` pada POCO F4 GT mengonfirmasi pencatatan persisten 12 baris event audit dari 5 aksi unik pada SQLite lokal (`VoiceActionAudits`); ekstraksi file SQLite mentah di luar sandbox aplikasi tetap out-of-scope.
 - **KI-10 (Step 3 Voice Category Fallback)**: [VERIFIED GAP] Perintah suara tambah produk tanpa kata kategori otomatis fallback ke Lain-lain; membutuhkan klarifikasi atau edit UI.
 - **KI-11 (HPP Data Quality Gap)**: [VERIFIED GAP] HPP Kopi Susu bernilai Rp0 sehingga metriks profitabilitas pada Analitik/Voice bersifat estimasi.
 - **Desktop Registrant Metadata**: [VERIFIED] 7 file platform desktop terdeteksi modified di Git stat cache pasca `pub get` (konten 0 diff).
