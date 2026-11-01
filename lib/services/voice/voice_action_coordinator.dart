@@ -55,9 +55,11 @@ class VoiceActionCoordinator {
   Future<void> cancelPending({String errorCode = 'session_closed'}) async {
     final action = pendingAction;
     if (action == null) return;
-    _inFlightActionIds.remove(action.actionId);
+    if (_inFlightActionIds.contains(action.actionId)) return;
     await _record(action, VoiceActionStatus.cancelled, errorCode: errorCode);
-    pendingAction = null;
+    if (pendingAction?.actionId == action.actionId) {
+      pendingAction = null;
+    }
     _awaitingAdditionalConfirmationActionIds.remove(action.actionId);
     _finalizedActionIds.add(action.actionId);
   }
@@ -595,7 +597,9 @@ class VoiceActionCoordinator {
   }
 
   void _finish(VoiceActionDraft action) {
-    pendingAction = null;
+    if (pendingAction?.actionId == action.actionId) {
+      pendingAction = null;
+    }
     _awaitingAdditionalConfirmationActionIds.remove(action.actionId);
     _finalizedActionIds.add(action.actionId);
   }
