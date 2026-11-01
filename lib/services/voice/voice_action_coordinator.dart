@@ -155,6 +155,23 @@ class VoiceActionCoordinator {
         kind: VoiceResponseKind.error,
       );
     }
+    if (_finalizedActionIds.contains(action.actionId)) {
+      if (pendingAction?.actionId == action.actionId) {
+        pendingAction = null;
+      }
+      return const VoiceCommandResponse(
+        displayText: 'Perintah ini sudah pernah dijalankan.',
+        kind: VoiceResponseKind.information,
+      );
+    }
+
+    if (_inFlightActionIds.contains(action.actionId)) {
+      return const VoiceCommandResponse(
+        displayText: 'Perintah ini sedang diproses. Mohon tunggu.',
+        kind: VoiceResponseKind.information,
+      );
+    }
+
     if (isAppLocked) {
       _finalizedActionIds.add(action.actionId);
       if (pendingAction?.actionId == action.actionId) {
@@ -186,23 +203,6 @@ class VoiceActionCoordinator {
       return const VoiceCommandResponse(
         displayText: 'Preview perubahan sudah kedaluwarsa. Ulangi perintah.',
         kind: VoiceResponseKind.error,
-      );
-    }
-
-    if (_finalizedActionIds.contains(action.actionId)) {
-      if (pendingAction?.actionId == action.actionId) {
-        pendingAction = null;
-      }
-      return const VoiceCommandResponse(
-        displayText: 'Perintah ini sudah pernah dijalankan.',
-        kind: VoiceResponseKind.information,
-      );
-    }
-
-    if (_inFlightActionIds.contains(action.actionId)) {
-      return const VoiceCommandResponse(
-        displayText: 'Perintah ini sedang diproses. Mohon tunggu.',
-        kind: VoiceResponseKind.information,
       );
     }
 
