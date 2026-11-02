@@ -122,6 +122,7 @@ class VoiceAssistantController extends ChangeNotifier {
   bool _disposed = false;
   int _executionGeneration = 0;
   int _listeningGeneration = 0;
+  int _ttsGeneration = 0;
   String? _activeCommandFingerprint;
   String? _completedCommandFingerprint;
   String _finalTranscriptBuffer = '';
@@ -622,7 +623,9 @@ class VoiceAssistantController extends ChangeNotifier {
   }
 
   Future<void> stopSpeaking() async {
+    _ttsGeneration += 1;
     try {
+      await _tts.setVolume(0.0);
       await _tts.stop();
     } catch (error, stackTrace) {
       SafeDiagnostics.failure('voice_tts_stop_failed', error, stackTrace);
@@ -652,16 +655,23 @@ class VoiceAssistantController extends ChangeNotifier {
 
   Future<void> speak(String text) async {
     if (_disposed || !ttsEnabled || text.trim().isEmpty) return;
+    final generation = ++_ttsGeneration;
     try {
       final override = speakOverride;
       if (override != null) {
         await override(text);
         return;
       }
-      await _configureTts();
+      if (!_ttsConfigured) {
+        await _configureTts();
+      }
+      if (_disposed || generation != _ttsGeneration) return;
+      await _tts.setVolume(1.0);
       await _tts.stop();
+      if (_disposed || generation != _ttsGeneration) return;
       await _tts.speak(text);
     } catch (error, stackTrace) {
+      if (_disposed || generation != _ttsGeneration) return;
       SafeDiagnostics.failure('voice_tts_failed', error, stackTrace);
       if (_disposed) return;
       lastError = error.toString();
@@ -748,6 +758,7 @@ class VoiceAssistantController extends ChangeNotifier {
   }
 
   Future<void> _configureTts() async {
+    if (_ttsConfigured) return;
     await _tts.setLanguage('id-ID');
     await _tts.setSpeechRate(0.48);
     await _tts.setPitch(1.0);
@@ -1081,6 +1092,7 @@ class VoiceAssistantController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _listeningGeneration += 1;
+    _ttsGeneration += 1;
     _businessConversationHandler.clear();
     _executionGeneration += 1;
     _isExecutingCommand = false;

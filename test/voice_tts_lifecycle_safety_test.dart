@@ -1,13 +1,15 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:mikiezy/services/navigation/app_navigation_service.dart';
 import 'package:mikiezy/services/voice/global_voice_controller.dart';
 import 'package:mikiezy/services/voice/global_voice_engine.dart';
 import 'package:mikiezy/services/voice/voice_command.dart';
 import 'package:mikiezy/services/voice/voice_parse_context.dart';
 import 'package:mikiezy/services/voice_assistant_controller.dart';
+import 'package:mikiezy/widgets/voice_overlay_host.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -205,6 +207,84 @@ void main() {
       expect(controller.sessionState, GlobalVoiceSessionState.stopped);
     });
   });
+
+  group('M4F.85: Physical KI-01 Case B Defect Reproduction Tests', () {
+    testWidgets('Defect 1 Reproduction: Stop button is enabled and clickable during active speaking', (tester) async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.speaking;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final stopButtonFinder = find.widgetWithText(OutlinedButton, 'Stop');
+      expect(stopButtonFinder, findsOneWidget);
+      final stopButton = tester.widget<OutlinedButton>(stopButtonFinder);
+      expect(
+        stopButton.onPressed,
+        isNotNull,
+        reason: 'Stop button must be clickable during active speech so user can interrupt TTS',
+      );
+    });
+
+    test('Defect 2 Reproduction: close() during speaking immediately calls engine stopSpeaking', () async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.speaking;
+
+      await controller.close();
+
+      expect(
+        engine.stopSpeakingCalls,
+        greaterThan(0),
+        reason: 'close() must call stopSpeaking to interrupt active audio',
+      );
+      expect(controller.isOpen, isFalse);
+      expect(controller.sessionState, GlobalVoiceSessionState.idle);
+    });
+
+    test('Defect 2 Reproduction: stopSpeaking silences volume immediately and prevents stale speak execution', () async {
+      final fakeTts = FakeFlutterTts();
+      final controller = VoiceAssistantController(textToSpeech: fakeTts);
+      addTearDown(controller.dispose);
+
+      // Start speaking
+      final speakFuture = controller.speak('Stok Kopi Susu Botol saat ini 64 pcs.');
+      await pumpEventQueue();
+
+      expect(fakeTts.speakCalls, 1);
+      expect(fakeTts.lastVolume, 1.0);
+
+      // User interrupts via stopSpeaking
+      await controller.stopSpeaking();
+
+      expect(fakeTts.stopCalls, greaterThanOrEqualTo(2)); // pre-utterance stop + interruption stop
+      expect(fakeTts.lastVolume, 0.0, reason: 'stopSpeaking must silence volume to 0.0 to kill buffered audio');
+
+      // Complete the interrupted utterance
+      if (fakeTts.currentSpeakCompleter != null &&
+          !fakeTts.currentSpeakCompleter!.isCompleted) {
+        fakeTts.currentSpeakCompleter!.complete(1);
+      }
+      await speakFuture;
+    });
+  });
 }
 
 GlobalVoiceController _createGlobalVoiceController(
@@ -226,6 +306,8 @@ class FakeFlutterTts extends Fake implements FlutterTts {
   int speakCalls = 0;
   int stopCalls = 0;
   int awaitSpeakCompletionCalls = 0;
+  int setVolumeCalls = 0;
+  double? lastVolume;
   bool throwOnStop = false;
   Completer<dynamic>? currentSpeakCompleter;
   String? lastSpokenText;
@@ -243,7 +325,11 @@ class FakeFlutterTts extends Fake implements FlutterTts {
   Future<dynamic> setSpeechRate(double rate) async => 1;
 
   @override
-  Future<dynamic> setVolume(double volume) async => 1;
+  Future<dynamic> setVolume(double volume) async {
+    setVolumeCalls += 1;
+    lastVolume = volume;
+    return 1;
+  }
 
   @override
   Future<dynamic> setPitch(double pitch) async => 1;

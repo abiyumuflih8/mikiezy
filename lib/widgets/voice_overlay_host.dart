@@ -167,7 +167,7 @@ class _VoiceOverlayPanel extends StatelessWidget {
               children: [
                 if (controller.isListening || controller.isBusy)
                   OutlinedButton.icon(
-                    onPressed: controller.isBusy ? null : controller.stop,
+                    onPressed: controller.stop,
                     icon: const Icon(Icons.stop_rounded, size: 18),
                     label: const Text('Stop'),
                   )

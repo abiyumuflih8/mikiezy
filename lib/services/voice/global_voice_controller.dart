@@ -231,8 +231,8 @@ class GlobalVoiceController extends ChangeNotifier {
     _processing = false;
     _cancelTimers();
     try {
-      await _engine.cancelListening();
       await _engine.stopSpeaking();
+      await _engine.cancelListening();
       await _engine.cancelPendingMutation(errorCode: 'voice_session_stopped');
     } catch (error, stackTrace) {
       _log('Global voice stop failed', error, stackTrace);
