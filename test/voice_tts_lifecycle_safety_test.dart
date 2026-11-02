@@ -285,6 +285,147 @@ void main() {
       await speakFuture;
     });
   });
+
+  group('M4F.85.2: KI-01 Defensive Interruption Hardening & Cancellation Chain Safety', () {
+    test('TEST 1: stopSpeaking() attempts _tts.stop() even when _tts.setVolume(0.0) throws', () async {
+      final fakeTts = FakeFlutterTts()..throwOnSetVolume = true;
+      final controller = VoiceAssistantController(textToSpeech: fakeTts);
+      addTearDown(controller.dispose);
+
+      await controller.stopSpeaking();
+
+      expect(
+        fakeTts.stopCalls,
+        greaterThanOrEqualTo(1),
+        reason: '_tts.stop() must be attempted even if volume muting throws',
+      );
+    });
+
+    test('TEST 2: Volume failure produces safe diagnostic evidence without disguising interruption outcome', () async {
+      final fakeTts = FakeFlutterTts()..throwOnSetVolume = true;
+      final controller = VoiceAssistantController(textToSpeech: fakeTts);
+      addTearDown(controller.dispose);
+
+      await controller.stopSpeaking();
+
+      // Controller should record volume failure attempt
+      expect(fakeTts.setVolumeCalls, 1);
+    });
+
+    test('TEST 3: Native TTS stop failure does not allow stale asynchronous speech to restart', () async {
+      final fakeTts = FakeFlutterTts()..throwOnStop = true;
+      final controller = VoiceAssistantController(textToSpeech: fakeTts);
+      addTearDown(controller.dispose);
+
+      final speakFuture = controller.speak('Stale utterance test');
+      await pumpEventQueue();
+
+      // Interruption triggers stopSpeaking which throws inside fakeTts.stop()
+      await controller.stopSpeaking();
+
+      // Ensure that subsequent calls cannot resume the old generation
+      expect(controller.lastError, contains('Native TTS stop failure'));
+      await speakFuture;
+    });
+
+    test('TEST 4: Engine-level stopSpeaking() exception does not skip STT and pending mutation cancellation', () async {
+      final engine = _SpyGlobalVoiceEngine()..throwOnStopSpeaking = true;
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.speaking;
+
+      await controller.stop();
+
+      expect(engine.stopSpeakingCalls, 1);
+      expect(
+        engine.cancelListeningCalls,
+        greaterThanOrEqualTo(1),
+        reason: 'cancelListening must be attempted even if stopSpeaking throws',
+      );
+      expect(
+        engine.cancelPendingMutationCalls,
+        greaterThanOrEqualTo(1),
+        reason: 'cancelPendingMutation must be attempted even if stopSpeaking throws',
+      );
+      expect(controller.sessionState, GlobalVoiceSessionState.stopped);
+    });
+
+    test('TEST 5: STT cancellation failure does not skip pending mutation cancellation', () async {
+      final engine = _SpyGlobalVoiceEngine()..throwOnCancelListening = true;
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.listening;
+
+      await controller.stop();
+
+      expect(engine.cancelListeningCalls, 1);
+      expect(
+        engine.cancelPendingMutationCalls,
+        greaterThanOrEqualTo(1),
+        reason: 'cancelPendingMutation must be attempted even if cancelListening throws',
+      );
+      expect(controller.sessionState, GlobalVoiceSessionState.stopped);
+    });
+
+    test('TEST 6: Repeated Stop/X calls preserve safe session state without unintended duplicate business actions', () async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.speaking;
+
+      await controller.stop();
+      await controller.stop();
+      await controller.close();
+
+      expect(controller.sessionState, GlobalVoiceSessionState.idle);
+      expect(controller.isOpen, isFalse);
+    });
+
+    test('TEST 7: Normal TTS speak and stop flow remains completely functional', () async {
+      final fakeTts = FakeFlutterTts();
+      final controller = VoiceAssistantController(textToSpeech: fakeTts);
+      addTearDown(controller.dispose);
+
+      final speakFuture = controller.speak('Normal speech');
+      await pumpEventQueue();
+
+      expect(fakeTts.speakCalls, 1);
+      expect(fakeTts.lastVolume, 1.0);
+
+      await controller.stopSpeaking();
+      expect(fakeTts.lastVolume, 0.0);
+      expect(fakeTts.stopCalls, greaterThanOrEqualTo(2));
+
+      if (fakeTts.currentSpeakCompleter != null && !fakeTts.currentSpeakCompleter!.isCompleted) {
+        fakeTts.currentSpeakCompleter!.complete(1);
+      }
+      await speakFuture;
+    });
+
+    test('TEST 8: Late async callbacks after session stop cannot reactivate old voice session', () async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      await controller.startPushToTalk();
+      await controller.stop();
+      expect(controller.sessionState, GlobalVoiceSessionState.stopped);
+
+      // Verify that engine activity on old generation is discarded
+      engine.phase = VoiceAssistantPhase.listening;
+      engine.notifyListeners();
+      await pumpEventQueue();
+
+      expect(controller.sessionState, GlobalVoiceSessionState.stopped);
+    });
+  });
+
 }
 
 GlobalVoiceController _createGlobalVoiceController(
@@ -309,6 +450,7 @@ class FakeFlutterTts extends Fake implements FlutterTts {
   int setVolumeCalls = 0;
   double? lastVolume;
   bool throwOnStop = false;
+  bool throwOnSetVolume = false;
   Completer<dynamic>? currentSpeakCompleter;
   String? lastSpokenText;
 
@@ -328,6 +470,9 @@ class FakeFlutterTts extends Fake implements FlutterTts {
   Future<dynamic> setVolume(double volume) async {
     setVolumeCalls += 1;
     lastVolume = volume;
+    if (throwOnSetVolume) {
+      throw Exception('Native TTS setVolume failure');
+    }
     return 1;
   }
 
@@ -362,6 +507,10 @@ class _SpyGlobalVoiceEngine with ChangeNotifier implements GlobalVoiceEngine {
   int startListeningCalls = 0;
   int stopSpeakingCalls = 0;
   int cancelListeningCalls = 0;
+  int cancelPendingMutationCalls = 0;
+  String? lastCancelledMutationErrorCode;
+  bool throwOnStopSpeaking = false;
+  bool throwOnCancelListening = false;
 
   @override
   VoiceAssistantPhase phase = VoiceAssistantPhase.completed;
@@ -394,6 +543,9 @@ class _SpyGlobalVoiceEngine with ChangeNotifier implements GlobalVoiceEngine {
   @override
   Future<void> cancelListening() async {
     cancelListeningCalls += 1;
+    if (throwOnCancelListening) {
+      throw Exception('Engine cancelListening failure');
+    }
     nativeListening = false;
     phase = VoiceAssistantPhase.completed;
     notifyListeners();
@@ -402,11 +554,17 @@ class _SpyGlobalVoiceEngine with ChangeNotifier implements GlobalVoiceEngine {
   @override
   Future<void> stopSpeaking() async {
     stopSpeakingCalls += 1;
+    if (throwOnStopSpeaking) {
+      throw Exception('Engine stopSpeaking failure');
+    }
     notifyListeners();
   }
 
   @override
-  Future<void> cancelPendingMutation({required String errorCode}) async {}
+  Future<void> cancelPendingMutation({required String errorCode}) async {
+    cancelPendingMutationCalls += 1;
+    lastCancelledMutationErrorCode = errorCode;
+  }
 
   @override
   Future<VoiceAssistantResult?> stopAndProcess({

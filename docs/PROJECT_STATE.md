@@ -6,7 +6,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 
 ## 1. Project Overview
 - **Scope & Tujuan**: [REPORTED] Aplikasi POS dan pembukuan keuangan UMKM *offline-first* dengan pemahaman transaksi berbasis suara berbahasa Indonesia, sekaligus subjek penelitian skripsi peminatan AI.
-- **Repository Baseline**: [VERIFIED] Workspace `C:\kuliah\pbm\mikiezy-antigravity` pada branch `migration/antigravity-pilot`. Baseline Phase 7A berasal dari commit `3680e1a` (`master`, v1.0.0+1). Checkpoint Git terakhir tersinkronisasi adalah commit `cb3a9cbc181d83667cc6fce1abbe553fdc76d713` (M4F.81). Patch M4F.85 siap untuk checkpoint lokal. Host test suite: 629/629 PASS, analyze bersih.
+- **Repository Baseline**: [VERIFIED] Workspace `C:\kuliah\pbm\mikiezy-antigravity` pada branch `migration/antigravity-pilot`. Baseline Phase 7A berasal dari commit `3680e1a` (`master`, v1.0.0+1). Checkpoint Git baseline adalah commit `21d963d4392c8addc225ce11c424e423acb97cd0` (M4F.85). Patch M4F.85.2 defensive hardening telah tervalidasi host (637/637 PASS, analyze bersih).
 
 ---
 
@@ -119,12 +119,20 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
   - Test-first reproduksi RED terkonfirmasi pada `test/voice_tts_lifecycle_safety_test.dart`.
   - Perbaikan bedah: penghapusan disabled guard pada Stop button UI, penambahan `_ttsGeneration` async guard, `setVolume(0.0)` instant mute saat `stopSpeaking()`, serta urutan `stopSpeaking()` sebelum `cancelListening()`.
   - Verifikasi menyeluruh GREEN: 15/15 targeted lifecycle safety tests PASS, 629/629 full suite PASS, analyze clean (0 issues).
+- **M4F.85.1 (Pre-Device Defensive Safety Review)**: [VERIFIED HOST-ONLY]
+  - Audit independen terhadap patch M4F.85 menemukan ketergantungan kegagalan (coupling): jika `setVolume(0.0)` melempar exception pada `stopSpeaking()`, `_tts.stop()` terlewati.
+  - Audit cancellation chain membuktikan bahwa unhandled exception pada `stopSpeaking()` atau `cancelListening()` dapat melewati pembatalan mutasi pending (`cancelPendingMutation()`).
+  - Rekomendasi: `HOLD FOR FIX` sebelum diagnostic APK v5 dibuat.
+- **M4F.85.2 (KI-01 Defensive Cancellation Hardening & Host Regression)**: [VERIFIED HOST-ONLY]
+  - Reproduksi test-first deterministik: 3 tes RED membuktikan terlewatinya native stop saat setVolume gagal, serta terlewatinya STT dan mutasi pembatalan saat chain berurutan melempar exception.
+  - Perbaikan bedah: pemisahan blok try-catch untuk `setVolume(0.0)` dan `_tts.stop()`, proteksi try-catch pada `_speech.cancel()`, serta decoupling independen untuk setiap langkah pembatalan di `GlobalVoiceController.stop()`.
+  - Verifikasi menyeluruh GREEN: 23/23 targeted safety tests PASS, 11/11 overlay tests PASS, 637/637 full suite PASS, analyze clean (0 issues).
 - **Hardware Scenarios & Smoke Runs**: [PARTIALLY TESTED] QA Run 2 & QA Run 3 tervalidasi pada paket terisolasi. SMOKE-01 (produksi) belum dijalankan, SMOKE-02 (XSpace) terblokir, dan mayoritas 234 skenario hardware belum dijalankan.
 
 ---
 
 ## 6. Current Operational State
-- **Build & Test Suite**: [VERIFIED] 100% PASS (629 automated tests terverifikasi via log M4F.85, analyze bersih).
+- **Build & Test Suite**: [VERIFIED] 100% PASS (637 automated tests terverifikasi via log M4F.85.2, analyze bersih).
 - **Perangkat Fisik**: [VERIFIED] Terhubung via ADB; QA Run 2 & QA Run 3 tuntas pada paket terisolasi `com.mikiezy.mikiezy.qa` & `com.mikiezy.mikiezy.qa.audit` (POCO F4 GT `21121210G`, User 0, versionCode=4 terpasang); instalasi produksi `com.mikiezy.mikiezy` tetap terlindungi.
 - **Demo / Release Readiness**: [REPORTED] **NO-GO** (Tetap ditahan; produksi smoke test 0/3, skenario XSpace SMOKE-02 terblokir, signing masih debug, 234 skenario hardware belum tuntas).
 - **SMOKE Runs**: [PARTIALLY TESTED] `SMOKE-01` (produksi User 0) NOT RUN; `SMOKE-02` (XSpace User 999) BLOCKED; `QA-RUN-2` (isolated QA User 0) PASS WITH DOCUMENTED DEVIATIONS (10/10 langkah kanonikal fungsional); `SMOKE-03` NOT RUN.
@@ -135,7 +143,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 
 ## 7. Known Issues & Blockers
 - **Bug Global Voice Overlay Leaking (Pre-Auth)**: [VERIFIED RESOLVED ON DEVICE] FAB tersembunyi pada pre-auth dan tampil tepat satu di dashboard.
-- **KI-01 (Voice Engine Stop/TTS)**: [HOST REMEDIATED (v2) / PHYSICAL VERIFICATION PENDING (APK v5)] Celah lifecycle audio TTS telah diremediasi pada host level (perbaikan Stop button UI, `_ttsGeneration` guard, peredaman volume `setVolume(0.0)`, 15/15 regression tests PASS, 629/629 full test suite PASS). Verifikasi fisik di POCO F4 GT menunggu build APK v5.
+- **KI-01 (Voice Engine Stop/TTS)**: [HOST REMEDIATED (v3) / PHYSICAL VERIFICATION PENDING (APK v5)] Celah lifecycle audio TTS dan rantai pembatalan defensif telah diremediasi pada host level (Stop button UI, `_ttsGeneration` guard, decoupled `setVolume(0.0)` muting & `stop()` fallback, decoupled cancellation chain, 23/23 regression tests PASS, 637/637 full test suite PASS). Verifikasi fisik di POCO F4 GT menunggu build APK v5.
 - **KI-04 (Hardware Matrix Partially Verified)**: [VERIFIED] QA Run 2 (10/10 langkah kanonikal) lulus pada paket QA terisolasi; 234 skenario hardware dan smoke test produksi 0/3 masih belum tuntas.
 - **KI-05 (Debug Signing)**: [VERIFIED] Build Android masih menggunakan signing key debug.
 - **KI-07 (Local Privacy)**: [VERIFIED] SQLite lokal belum terenkripsi; raw voice transcript tersimpan pada tabel koreksi lokal.
@@ -169,13 +177,14 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 
 ## 10. Current Priorities
 1. Menjaga kontinuitas konteks agent agar tidak melakukan modifikasi tak terarah atau rebuild komponen existing.
-2. Mempertahankan pemisahan lingkungan QA terisolasi (`com.mikiezy.mikiezy.qa`) dan instalasi produksi (`com.mikiezy.mikiezy`).
-3. Mengkaji resolusi blocker XSpace User 999 (`SMOKE-02`) dan mempersiapkan protokol pengujian smoke produksi bersih (`SMOKE-01`).
+2. Mempertahankan pemisahan lingkungan QA terisolasi (`com.mikiezy.mikiezy.qa` & `com.mikiezy.mikiezy.qa.audit`) dan instalasi produksi (`com.mikiezy.mikiezy`).
+3. Mempersiapkan isolated diagnostic APK v5 build dan verifikasi ulang fisik Case B di POCO F4 GT.
+4. Menjaga status terbuka (OPEN) untuk blocker XSpace User 999 (`SMOKE-02`) dan protokol pengujian smoke produksi bersih (`SMOKE-01`).
 
 ---
 
 ## 11. Next Recommended Action
-- Mengkaji arsitektur penanganan Dual Apps sandbox XSpace (`SMOKE-02`) atau mempersiapkan pengujian smoke produksi terkontrol (`SMOKE-01`) atas izin eksplisit pemilik.
+- Melakukan review hasil host validation M4F.85.2 bersama pemilik, kemudian mengajukan otorisasi pembuatan isolated diagnostic APK v5 untuk verifikasi fisik audio di POCO F4 GT.
 
 ---
 

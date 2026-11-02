@@ -626,6 +626,14 @@ class VoiceAssistantController extends ChangeNotifier {
     _ttsGeneration += 1;
     try {
       await _tts.setVolume(0.0);
+    } catch (error, stackTrace) {
+      SafeDiagnostics.failure(
+        'voice_tts_volume_silence_failed',
+        error,
+        stackTrace,
+      );
+    }
+    try {
       await _tts.stop();
     } catch (error, stackTrace) {
       SafeDiagnostics.failure('voice_tts_stop_failed', error, stackTrace);
@@ -642,7 +650,11 @@ class VoiceAssistantController extends ChangeNotifier {
     _isStarting = false;
     if (nativeListening) {
       nativeListening = false;
-      await _speech.cancel();
+      try {
+        await _speech.cancel();
+      } catch (error, stackTrace) {
+        SafeDiagnostics.failure('voice_speech_cancel_failed', error, stackTrace);
+      }
     }
     if (!_disposed) notifyListeners();
   }

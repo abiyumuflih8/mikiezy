@@ -232,10 +232,18 @@ class GlobalVoiceController extends ChangeNotifier {
     _cancelTimers();
     try {
       await _engine.stopSpeaking();
+    } catch (error, stackTrace) {
+      _log('Global voice stop speaking failed', error, stackTrace);
+    }
+    try {
       await _engine.cancelListening();
+    } catch (error, stackTrace) {
+      _log('Global voice cancel listening failed', error, stackTrace);
+    }
+    try {
       await _engine.cancelPendingMutation(errorCode: 'voice_session_stopped');
     } catch (error, stackTrace) {
-      _log('Global voice stop failed', error, stackTrace);
+      _log('Global voice cancel mutation failed', error, stackTrace);
     }
     sessionState = GlobalVoiceSessionState.stopped;
     feedback = reason;
@@ -464,7 +472,12 @@ class GlobalVoiceController extends ChangeNotifier {
     _generation += 1;
     _cancelTimers();
     _engine.removeListener(_handleEngineChanged);
-    unawaited(_engine.cancelListening());
+    unawaited(
+      _engine.cancelListening().catchError(
+        (error, stackTrace) =>
+            _log('Global voice dispose cancel listening failed', error, stackTrace),
+      ),
+    );
     _engine.dispose();
     if (_wakeWordPaused) unawaited(_resumeWakeWord());
     super.dispose();
