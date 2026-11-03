@@ -123,6 +123,28 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
   - Audit independen terhadap patch M4F.85 menemukan ketergantungan kegagalan (coupling): jika `setVolume(0.0)` melempar exception pada `stopSpeaking()`, `_tts.stop()` terlewati.
   - Audit cancellation chain membuktikan bahwa unhandled exception pada `stopSpeaking()` atau `cancelListening()` dapat melewati pembatalan mutasi pending (`cancelPendingMutation()`).
   - Rekomendasi: `HOLD FOR FIX` sebelum diagnostic APK v5 dibuat.
+- **M4F.86 (Isolated Diagnostic APK v5 Host Build & Provenance Audit)**: [VERIFIED HOST-ONLY]
+  - Build rilis isolated QA audit versionCode 5 (`app-qaaudit-v5-b75a6f0.apk`, SHA-256 `472C0428473B5F7726E2444CB8778780251D507B1E0A907F57F6986101E334F5`, 62,845,998 bytes).
+  - Verifikasi sertifikat penandatanganan via `apksigner`: SHA-256 digest identik (`ed0e0615...`).
+- **M4F.87 (Controlled Diagnostic APK v5 In-Place Update & Durability Verification)**: [VERIFIED ON DEVICE]
+  - Pembaruan in-place via `adb install -r` sukses pada POCO F4 GT (`21121210G`, User 0, `versionCode=5`, UID 10462).
+  - AppLock fail-closed terverifikasi; durabilitas database Drift v6 (5 produk, 12 event audit lokal) 100% utuh.
+- **M4F.88 (Physical KI-01 Audio Lifecycle & Interruption Verification)**: [VERIFIED ON DEVICE]
+  - Case A (Normal TTS playback): PASS (Respons audio suara jelas dan lengkap).
+  - Case B1 (Stop button): FAIL (Tombol Stop tidak tersedia/tidak actionable saat suara native masih terdengar).
+  - Case B2 (Close X interruption): FAIL (Overlay tertutup namun suara native Android terus berbicara hingga kalimat habis).
+- **M4F.89 (Physical KI-01 Root-Cause Investigation)**: [VERIFIED HOST-ONLY]
+  - Investigasi akar masalah menemukan decoupled lifecycle UI vs playback hardware dan batasan native plugin `flutter_tts`.
+- **M4F.90 (KI-01 Targeted Root-Cause Discrimination & Test-First Remediation)**: [VERIFIED HOST-ONLY]
+  - Pembuktian deterministik via 8 targeted regression tests: Stop button dicopot dari UI saat `sessionState = completed` (`isBusy = false`); jalur event Stop & Close X di Flutter terbukti 100% intak memicu `_tts.stop()`.
+  - Remediasi minimal: Penanganan kode kembalian non-success pada native `_tts.stop()` di `VoiceAssistantController.stopSpeaking()` dengan pencatatan log diagnostik aman `voice_tts_stop_unsuccessful`.
+  - Verifikasi menyeluruh: 31/31 targeted tests PASS, 11/11 overlay tests PASS, 645/645 full suite PASS (+8 dari baseline 637), static analysis bersih (0 issues).
+- **M4F.91 (KI-01 Stop Fallback UI Remediation & Native Stop Diagnostic Review)**: [VERIFIED HOST-ONLY]
+  - Audit source `FlutterTtsPlugin.kt` membuktikan Android MethodChannel mengembalikan `result.success(1)` tanpa memeriksa return code `TextToSpeech.stop()`; logging diagnostik M4F.90 terbukti valid terhadap kontrak plugin.
+  - Reproduksi test-first deterministik: 2 tes RED membuktikan ketiadaan tombol Stop saat state `completed`.
+  - Remediasi bedah UI: Penambahan fallback tombol Stop pada `VoiceOverlayHost` saat `sessionState == completed`, sehingga pengguna tetap dapat memicu `controller.stop()` meskipun sesi voice telah selesai diproses.
+  - Verifikasi host menyeluruh GREEN: 39/39 targeted safety tests PASS, 11/11 overlay tests PASS, 653/653 full suite PASS (+8 dari baseline 645), static analysis bersih (0 issues).
+
 - **M4F.85.2 (KI-01 Defensive Cancellation Hardening & Host Regression)**: [VERIFIED HOST-ONLY]
   - Reproduksi test-first deterministik: 3 tes RED membuktikan terlewatinya native stop saat setVolume gagal, serta terlewatinya STT dan mutasi pembatalan saat chain berurutan melempar exception.
   - Perbaikan bedah: pemisahan blok try-catch untuk `setVolume(0.0)` dan `_tts.stop()`, proteksi try-catch pada `_speech.cancel()`, serta decoupling independen untuk setiap langkah pembatalan di `GlobalVoiceController.stop()`.
@@ -132,7 +154,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 ---
 
 ## 6. Current Operational State
-- **Build & Test Suite**: [VERIFIED] 100% PASS (637 automated tests terverifikasi via log M4F.85.2, analyze bersih).
+- **Build & Test Suite**: [VERIFIED] 100% PASS (653 automated tests terverifikasi via log M4F.91, analyze bersih).
 - **Perangkat Fisik**: [VERIFIED] Terhubung via ADB; QA Run 2 & QA Run 3 tuntas pada paket terisolasi `com.mikiezy.mikiezy.qa` & `com.mikiezy.mikiezy.qa.audit` (POCO F4 GT `21121210G`, User 0, versionCode=4 terpasang); instalasi produksi `com.mikiezy.mikiezy` tetap terlindungi.
 - **Demo / Release Readiness**: [REPORTED] **NO-GO** (Tetap ditahan; produksi smoke test 0/3, skenario XSpace SMOKE-02 terblokir, signing masih debug, 234 skenario hardware belum tuntas).
 - **SMOKE Runs**: [PARTIALLY TESTED] `SMOKE-01` (produksi User 0) NOT RUN; `SMOKE-02` (XSpace User 999) BLOCKED; `QA-RUN-2` (isolated QA User 0) PASS WITH DOCUMENTED DEVIATIONS (10/10 langkah kanonikal fungsional); `SMOKE-03` NOT RUN.
@@ -143,7 +165,7 @@ Dokumen ini adalah ringkasan status operasional kanonikal terkini (*current oper
 
 ## 7. Known Issues & Blockers
 - **Bug Global Voice Overlay Leaking (Pre-Auth)**: [VERIFIED RESOLVED ON DEVICE] FAB tersembunyi pada pre-auth dan tampil tepat satu di dashboard.
-- **KI-01 (Voice Engine Stop/TTS)**: [HOST REMEDIATED (v3) / PHYSICAL VERIFICATION PENDING (APK v5)] Celah lifecycle audio TTS dan rantai pembatalan defensif telah diremediasi pada host level (Stop button UI, `_ttsGeneration` guard, decoupled `setVolume(0.0)` muting & `stop()` fallback, decoupled cancellation chain, 23/23 regression tests PASS, 637/637 full test suite PASS). Verifikasi fisik di POCO F4 GT menunggu build APK v5.
+- **KI-01 (Voice Engine Stop/TTS)**: [OPEN / PHYSICAL FAIL (APK v5) / M4F.91 UI REMEDIATED (HOST 653/653 PASS)] Case A PASS, Case B1 & B2 FAIL pada APK v5 di POCO F4 GT. M4F.91 meremediasi celah UI ketiadaan tombol Stop saat `completed` via fallback di `VoiceOverlayHost`, memverifikasi kontrak plugin `flutter_tts 4.2.5`, dan lulus host regression 39/39 targeted tests & 653/653 full suite. Interupsi akustik fisik hardware Android 13 tetap membutuhkan pembuktian fisik.
 - **KI-04 (Hardware Matrix Partially Verified)**: [VERIFIED] QA Run 2 (10/10 langkah kanonikal) lulus pada paket QA terisolasi; 234 skenario hardware dan smoke test produksi 0/3 masih belum tuntas.
 - **KI-05 (Debug Signing)**: [VERIFIED] Build Android masih menggunakan signing key debug.
 - **KI-07 (Local Privacy)**: [VERIFIED] SQLite lokal belum terenkripsi; raw voice transcript tersimpan pada tabel koreksi lokal.

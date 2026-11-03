@@ -165,13 +165,13 @@ class _VoiceOverlayPanel extends StatelessWidget {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                if (controller.isListening || controller.isBusy)
+                if (controller.isListening || controller.isBusy) ...[
                   OutlinedButton.icon(
                     onPressed: controller.stop,
                     icon: const Icon(Icons.stop_rounded, size: 18),
                     label: const Text('Stop'),
-                  )
-                else
+                  ),
+                ] else ...[
                   FilledButton.icon(
                     onPressed: controller.startPushToTalk,
                     icon: const Icon(Icons.mic_rounded, size: 18),
@@ -181,6 +181,13 @@ class _VoiceOverlayPanel extends StatelessWidget {
                           : 'Bicara lagi',
                     ),
                   ),
+                  if (controller.sessionState == GlobalVoiceSessionState.completed)
+                    OutlinedButton.icon(
+                      onPressed: controller.stop,
+                      icon: const Icon(Icons.stop_rounded, size: 18),
+                      label: const Text('Stop'),
+                    ),
+                ],
                 FilterChip(
                   selected: controller.conversationMode,
                   onSelected: controller.setConversationMode,

@@ -426,6 +426,472 @@ void main() {
     });
   });
 
+  group('M4F.90: Targeted KI-01 Root-Cause Discrimination & UI Lifecycle Tests', () {
+    const queryCommand = VoiceCommand(
+      rawText: 'cek omzet',
+      normalizedText: 'cek omzet',
+      intent: VoiceCommandIntent.querySales,
+      entities: VoiceCommandEntities(),
+      confidence: 1.0,
+    );
+    const queryResponse = VoiceCommandResponse(
+      displayText: 'Total penjualan hari ini Rp 0.',
+      spokenText: 'Total penjualan hari ini nol rupiah.',
+    );
+    const queryExecution = VoiceCommandExecutionResult(
+      command: queryCommand,
+      response: queryResponse,
+      handled: true,
+    );
+
+    test('TEST 1: Real global voice processing path from query through speaking to terminal state', () async {
+      final engine = _SpyGlobalVoiceEngine()
+        ..stubbedCommandExecution = queryExecution;
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+      addTearDown(engine.completeSpeak);
+
+      await controller.startPushToTalk();
+      expect(controller.isOpen, isTrue);
+
+      final processFuture = controller.processCurrentSession();
+      await pumpEventQueue();
+
+      expect(controller.sessionState, GlobalVoiceSessionState.speaking);
+      expect(controller.isBusy, isTrue);
+      expect(controller.feedback, 'Total penjualan hari ini Rp 0.');
+      expect(engine.speakCalls, 1);
+      expect(engine.lastSpokenText, 'Total penjualan hari ini nol rupiah.');
+
+      engine.completeSpeak();
+      await processFuture;
+      await pumpEventQueue();
+
+      expect(controller.sessionState, GlobalVoiceSessionState.completed);
+      expect(controller.isBusy, isFalse);
+    });
+
+    testWidgets('TEST 2: Stop remains actionable while simulated utterance is active', (tester) async {
+      final engine = _SpyGlobalVoiceEngine()
+        ..stubbedCommandExecution = queryExecution;
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+      addTearDown(engine.completeSpeak);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await controller.startPushToTalk();
+      await tester.pump();
+
+      final processFuture = controller.processCurrentSession();
+      await tester.pump();
+
+      expect(controller.sessionState, GlobalVoiceSessionState.speaking);
+      final stopFinder = find.widgetWithText(OutlinedButton, 'Stop');
+      expect(stopFinder, findsOneWidget);
+      final stopButton = tester.widget<OutlinedButton>(stopFinder);
+      expect(stopButton.onPressed, isNotNull);
+
+      engine.completeSpeak();
+      await tester.pump();
+      await processFuture;
+    });
+
+    testWidgets('TEST 3: Early Future resolution simulates loss of UI Stop button while lingering', (tester) async {
+      final engine = _SpyGlobalVoiceEngine()
+        ..stubbedCommandExecution = queryExecution;
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+      addTearDown(engine.completeSpeak);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await controller.startPushToTalk();
+      await tester.pump();
+
+      final processFuture = controller.processCurrentSession();
+      await tester.pump();
+
+      expect(find.widgetWithText(OutlinedButton, 'Stop'), findsOneWidget);
+
+      // Simulate early future completion from native plugin
+      engine.completeSpeak();
+      await tester.pump();
+      await processFuture;
+      await tester.pump();
+
+      expect(controller.sessionState, GlobalVoiceSessionState.completed);
+      expect(controller.isBusy, isFalse);
+      // M4F.91 remediation ensures Stop remains available in completed state as an audio-interruption fallback
+      expect(find.widgetWithText(OutlinedButton, 'Stop'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Bicara lagi'), findsOneWidget);
+    });
+
+    testWidgets('TEST 4: Tapping Stop during active simulated speech triggers interruption callback', (tester) async {
+      final engine = _SpyGlobalVoiceEngine()
+        ..stubbedCommandExecution = queryExecution;
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+      addTearDown(engine.completeSpeak);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await controller.startPushToTalk();
+      await tester.pump();
+
+      final processFuture = controller.processCurrentSession();
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Stop'));
+      await tester.pump();
+      await processFuture;
+
+      expect(engine.stopSpeakingCalls, 1);
+      expect(controller.sessionState, GlobalVoiceSessionState.stopped);
+      expect(find.text('Sesi voice dihentikan.'), findsOneWidget);
+    });
+
+    testWidgets('TEST 5: Tapping close X during active simulated speech executes cancellation and closes overlay', (tester) async {
+      final engine = _SpyGlobalVoiceEngine()
+        ..stubbedCommandExecution = queryExecution;
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+      addTearDown(engine.completeSpeak);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await controller.startPushToTalk();
+      await tester.pump();
+
+      final processFuture = controller.processCurrentSession();
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump();
+      await processFuture;
+
+      expect(engine.stopSpeakingCalls, 1);
+      expect(controller.isOpen, isFalse);
+      expect(controller.sessionState, GlobalVoiceSessionState.idle);
+    });
+
+    test('TEST 6: Native TTS stop return value handling when stop returns non-success code without throwing', () async {
+      final fakeTts = FakeFlutterTts()..stopReturnValue = 0;
+      final controller = VoiceAssistantController(textToSpeech: fakeTts);
+      addTearDown(controller.dispose);
+
+      final speakFuture = controller.speak('Kalimat uji coba non-success');
+      await pumpEventQueue();
+
+      await controller.stopSpeaking();
+
+      expect(fakeTts.stopCalls, greaterThanOrEqualTo(2));
+      expect(fakeTts.lastVolume, 0.0);
+
+      fakeTts.completeCurrentSpeak();
+      await speakFuture;
+    });
+
+    test('TEST 7: Stale callbacks and overlapping sessions cannot restart TTS on superseded generation', () async {
+      final fakeTts = FakeFlutterTts();
+      final controller = VoiceAssistantController(textToSpeech: fakeTts);
+      addTearDown(controller.dispose);
+
+      final firstSpeak = controller.speak('Ucapan pertama');
+      await pumpEventQueue();
+      expect(fakeTts.speakCalls, 1);
+      final firstCompleter = fakeTts.currentSpeakCompleter;
+
+      await controller.stopSpeaking();
+
+      final secondSpeak = controller.speak('Ucapan kedua');
+      await pumpEventQueue();
+      expect(fakeTts.speakCalls, 2);
+
+      if (firstCompleter != null && !firstCompleter.isCompleted) {
+        firstCompleter.complete(1);
+      }
+      await firstSpeak;
+
+      expect(fakeTts.lastSpokenText, 'Ucapan kedua');
+      fakeTts.completeCurrentSpeak();
+      await secondSpeak;
+    });
+
+    test('TEST 8: Normal speech completion preserves conversation mode bounds without unintended relisten', () async {
+      final engine = _SpyGlobalVoiceEngine()
+        ..stubbedCommandExecution = queryExecution;
+      final controller = _createGlobalVoiceController(
+        engine,
+        conversationDelay: const Duration(milliseconds: 50),
+      );
+      addTearDown(controller.dispose);
+
+      controller.conversationMode = false;
+      await controller.startPushToTalk();
+      final processFuture = controller.processCurrentSession();
+      await pumpEventQueue();
+
+      engine.completeSpeak();
+      await processFuture;
+      await pumpEventQueue();
+
+      expect(controller.sessionState, GlobalVoiceSessionState.completed);
+
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+      await pumpEventQueue();
+
+      expect(engine.startListeningCalls, 1);
+      expect(controller.sessionState, GlobalVoiceSessionState.completed);
+    });
+  });
+
+  group('M4F.91: KI-01 Completed-State Stop Fallback & UI Safety Tests', () {
+    testWidgets('TEST 1: Stop control remains available when overlay is open in completed state', (tester) async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.completed;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final stopFinder = find.widgetWithText(OutlinedButton, 'Stop');
+      expect(
+        stopFinder,
+        findsOneWidget,
+        reason: 'Stop button must remain available when session is completed to allow stopping lingering native audio',
+      );
+    });
+
+    testWidgets('TEST 2: Tapping Stop fallback in completed state invokes controller stop', (tester) async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.completed;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final stopFinder = find.widgetWithText(OutlinedButton, 'Stop');
+      if (stopFinder.evaluate().isNotEmpty) {
+        await tester.tap(stopFinder);
+        await tester.pump();
+        expect(engine.stopSpeakingCalls, greaterThanOrEqualTo(1));
+        expect(controller.sessionState, GlobalVoiceSessionState.stopped);
+      } else {
+        fail('Stop button was not rendered in completed state');
+      }
+    });
+
+    testWidgets('TEST 3: Stop remains visible and actionable in active speaking state', (tester) async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.speaking;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final stopFinder = find.widgetWithText(OutlinedButton, 'Stop');
+      expect(stopFinder, findsOneWidget);
+      final stopButton = tester.widget<OutlinedButton>(stopFinder);
+      expect(stopButton.onPressed, isNotNull);
+    });
+
+    testWidgets('TEST 4: Bicara lagi remains available in completed state', (tester) async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.completed;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final retryFinder = find.widgetWithText(FilledButton, 'Bicara lagi');
+      expect(retryFinder, findsOneWidget);
+    });
+
+    testWidgets('TEST 5: Close X invokes controller close and engine stopSpeaking', (tester) async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.completed;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: AppRouteNames.forTarget(VoiceNavigationTarget.dashboard),
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump();
+
+      expect(engine.stopSpeakingCalls, greaterThanOrEqualTo(1));
+      expect(controller.isOpen, isFalse);
+      expect(controller.sessionState, GlobalVoiceSessionState.idle);
+    });
+
+    test('TEST 6: Repeated stop calls are idempotent and do not introduce errors', () async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.completed;
+
+      await controller.stop();
+      await controller.stop();
+      await controller.close();
+
+      expect(controller.sessionState, GlobalVoiceSessionState.idle);
+      expect(controller.isOpen, isFalse);
+    });
+
+    testWidgets('TEST 7: Overlay remains hidden on disallowed routes', (tester) async {
+      final engine = _SpyGlobalVoiceEngine();
+      final controller = _createGlobalVoiceController(engine);
+      addTearDown(controller.dispose);
+
+      controller.isOpen = true;
+      controller.sessionState = GlobalVoiceSessionState.completed;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: VoiceOverlayHost(
+              controller: controller,
+              initialRouteName: '/splash',
+              child: const SizedBox(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Bicara lagi'), findsNothing);
+      expect(find.widgetWithText(OutlinedButton, 'Stop'), findsNothing);
+    });
+
+    test('TEST 8: Native stop diagnostic logs on unsuccessful return without throwing', () async {
+      final fakeTts = FakeFlutterTts()..stopReturnValue = 0;
+      final controller = VoiceAssistantController(textToSpeech: fakeTts);
+      addTearDown(controller.dispose);
+
+      final speakFuture = controller.speak('Uji status stop');
+      await pumpEventQueue();
+
+      await controller.stopSpeaking();
+
+      expect(fakeTts.stopCalls, greaterThanOrEqualTo(2));
+      expect(fakeTts.stopReturnValue, 0);
+
+      fakeTts.completeCurrentSpeak();
+      await speakFuture;
+    });
+  });
+
 }
 
 GlobalVoiceController _createGlobalVoiceController(
@@ -453,6 +919,13 @@ class FakeFlutterTts extends Fake implements FlutterTts {
   bool throwOnSetVolume = false;
   Completer<dynamic>? currentSpeakCompleter;
   String? lastSpokenText;
+  dynamic stopReturnValue = 1;
+
+  void completeCurrentSpeak([dynamic value = 1]) {
+    if (currentSpeakCompleter != null && !currentSpeakCompleter!.isCompleted) {
+      currentSpeakCompleter!.complete(value);
+    }
+  }
 
   @override
   Future<dynamic> awaitSpeakCompletion(bool awaitCompletion) async {
@@ -497,7 +970,7 @@ class FakeFlutterTts extends Fake implements FlutterTts {
     if (currentSpeakCompleter != null && !currentSpeakCompleter!.isCompleted) {
       currentSpeakCompleter!.complete(1);
     }
-    return 1;
+    return stopReturnValue;
   }
 }
 
@@ -511,6 +984,17 @@ class _SpyGlobalVoiceEngine with ChangeNotifier implements GlobalVoiceEngine {
   String? lastCancelledMutationErrorCode;
   bool throwOnStopSpeaking = false;
   bool throwOnCancelListening = false;
+  Completer<void>? speakCompleter;
+  int speakCalls = 0;
+  String? lastSpokenText;
+  VoiceAssistantResult? stubbedStopAndProcessResult;
+  VoiceCommandExecutionResult? stubbedCommandExecution;
+
+  void completeSpeak() {
+    if (speakCompleter != null && !speakCompleter!.isCompleted) {
+      speakCompleter!.complete();
+    }
+  }
 
   @override
   VoiceAssistantPhase phase = VoiceAssistantPhase.completed;
@@ -557,6 +1041,9 @@ class _SpyGlobalVoiceEngine with ChangeNotifier implements GlobalVoiceEngine {
     if (throwOnStopSpeaking) {
       throw Exception('Engine stopSpeaking failure');
     }
+    if (speakCompleter != null && !speakCompleter!.isCompleted) {
+      speakCompleter!.complete();
+    }
     notifyListeners();
   }
 
@@ -572,11 +1059,22 @@ class _SpyGlobalVoiceEngine with ChangeNotifier implements GlobalVoiceEngine {
     required bool speakResult,
   }) async {
     nativeListening = false;
-    return null;
+    latestCommandExecution = stubbedCommandExecution;
+    if (stubbedCommandExecution != null) {
+      feedback = stubbedCommandExecution!.response.displayText;
+      transcript = stubbedCommandExecution!.command.rawText;
+    }
+    return stubbedStopAndProcessResult;
   }
 
   @override
-  Future<void> speak(String text) async {}
+  Future<void> speak(String text) async {
+    speakCalls += 1;
+    lastSpokenText = text;
+    final completer = Completer<void>();
+    speakCompleter = completer;
+    return completer.future;
+  }
 
   @override
   void clearTranscript() {

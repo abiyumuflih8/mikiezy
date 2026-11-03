@@ -634,7 +634,14 @@ class VoiceAssistantController extends ChangeNotifier {
       );
     }
     try {
-      await _tts.stop();
+      final dynamic stopResult = await _tts.stop();
+      if (stopResult != 1) {
+        SafeDiagnostics.voiceEvent(
+          'voice_tts_stop_unsuccessful',
+          generation: _ttsGeneration,
+          status: stopResult?.toString() ?? 'null',
+        );
+      }
     } catch (error, stackTrace) {
       SafeDiagnostics.failure('voice_tts_stop_failed', error, stackTrace);
       if (!_disposed) {
